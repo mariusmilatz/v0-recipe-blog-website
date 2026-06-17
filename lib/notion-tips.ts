@@ -1,5 +1,6 @@
 import { Client } from "@notionhq/client"
 import { NotionToMarkdown } from "notion-to-md"
+import { cacheNotionImage } from "./image-cache"
 
 // Initialize Notion client
 const notion = new Client({
@@ -84,14 +85,14 @@ export async function getAllTipsFromNotion(): Promise<Tip[]> {
         let titleImage = ""
         if (properties["Title Image"]?.files?.length > 0) {
           const file = properties["Title Image"].files[0]
-          titleImage = file.file?.url || file.external?.url || ""
+          titleImage = await cacheNotionImage(file.file?.url || file.external?.url || "")
         }
 
         // Extract author profile photo
         let authorProfilePhoto = ""
         if (properties["Author Profile Photo"]?.files?.length > 0) {
           const file = properties["Author Profile Photo"].files[0]
-          authorProfilePhoto = file.file?.url || file.external?.url || ""
+          authorProfilePhoto = await cacheNotionImage(file.file?.url || file.external?.url || "")
         }
 
         return {
@@ -153,7 +154,7 @@ export async function getTipBySlugFromNotion(slug: string): Promise<Tip | null> 
       const imageProp = properties[`Image ${i}`]
       if (imageProp && imageProp.files.length > 0) {
         const file = imageProp.files[0]
-        const imageUrl = file.file?.url || file.external?.url || ""
+        const imageUrl = await cacheNotionImage(file.file?.url || file.external?.url || "")
         if (imageUrl) {
           images.push(imageUrl)
         }
@@ -209,14 +210,14 @@ export async function getTipByIdFromNotion(id: string): Promise<Tip | null> {
     let titleImage = ""
     if (properties["Title Image"]?.files?.length > 0) {
       const file = properties["Title Image"].files[0]
-      titleImage = file.file?.url || file.external?.url || ""
+      titleImage = await cacheNotionImage(file.file?.url || file.external?.url || "")
     }
 
     // Extract author profile photo
     let authorProfilePhoto = ""
     if (properties["Author Profile Photo"]?.files?.length > 0) {
       const file = properties["Author Profile Photo"].files[0]
-      authorProfilePhoto = file.file?.url || file.external?.url || ""
+      authorProfilePhoto = await cacheNotionImage(file.file?.url || file.external?.url || "")
     }
 
     // Extract paragraphs and images
@@ -235,7 +236,7 @@ export async function getTipByIdFromNotion(id: string): Promise<Tip | null> {
       const imageProp = properties[`Image ${i}`]
       if (imageProp && imageProp.files.length > 0) {
         const file = imageProp.files[0]
-        const imageUrl = file.file?.url || file.external?.url || ""
+        const imageUrl = await cacheNotionImage(file.file?.url || file.external?.url || "")
         if (imageUrl) {
           images.push(imageUrl)
         }

@@ -1,4 +1,5 @@
 import { Client } from "@notionhq/client"
+import { cacheNotionImage } from "./image-cache"
 
 // Initialize Notion client
 let notion: Client
@@ -103,8 +104,8 @@ export async function fetchBlogPostsFromNotion() {
       return []
     }
 
-    return response.results
-      .map((page: any) => {
+    const posts = await Promise.all(
+      response.results.map(async (page: any) => {
         try {
           const properties = page.properties || {}
 
@@ -142,8 +143,12 @@ export async function fetchBlogPostsFromNotion() {
             author,
             authorTitle,
             authorDescription,
-            authorProfilePhoto: authorProfilePhotos.length > 0 ? authorProfilePhotos[0] : null,
-            titleImage: titleImages.length > 0 ? titleImages[0] : "/placeholder.svg?height=500&width=1000",
+            authorProfilePhoto:
+              authorProfilePhotos.length > 0 ? await cacheNotionImage(authorProfilePhotos[0]) : null,
+            titleImage:
+              titleImages.length > 0
+                ? await cacheNotionImage(titleImages[0])
+                : "/placeholder.svg?height=500&width=1000",
             isPublished,
             createdAt: page.created_time,
             updatedAt: page.last_edited_time,
@@ -152,8 +157,10 @@ export async function fetchBlogPostsFromNotion() {
           console.error("Error processing blog post from Notion:", error)
           return null
         }
-      })
-      .filter(Boolean) // Remove any null entries
+      }),
+    )
+
+    return posts.filter(Boolean) // Remove any null entries
   } catch (error) {
     console.error("Error fetching blog posts from Notion:", error)
     return []
@@ -221,7 +228,7 @@ export async function fetchBlogPostByIdFromNotion(pageId: string) {
       if (images && images.length > 0) {
         content.push({
           type: "image",
-          url: images[0],
+          url: await cacheNotionImage(images[0]),
           caption: `Image ${i}`,
         })
       }
@@ -237,8 +244,9 @@ export async function fetchBlogPostByIdFromNotion(pageId: string) {
       author,
       authorTitle,
       authorDescription,
-      authorProfilePhoto: authorProfilePhotos.length > 0 ? authorProfilePhotos[0] : null,
-      titleImage: titleImages.length > 0 ? titleImages[0] : "/placeholder.svg?height=500&width=1000",
+      authorProfilePhoto: authorProfilePhotos.length > 0 ? await cacheNotionImage(authorProfilePhotos[0]) : null,
+      titleImage:
+        titleImages.length > 0 ? await cacheNotionImage(titleImages[0]) : "/placeholder.svg?height=500&width=1000",
       content,
       isPublished,
       createdAt: page.created_time,

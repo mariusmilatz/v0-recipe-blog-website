@@ -1,5 +1,6 @@
 import { Client } from "@notionhq/client"
 import { cache } from "react"
+import { cacheNotionImage, cacheNotionImages } from "./image-cache"
 
 // Initialize Notion client
 const notion = new Client({
@@ -32,7 +33,7 @@ function extractMealInfo(text) {
 }
 
 // Helper function to extract image URL from files property
-function extractImageUrl(filesProperty) {
+async function extractImageUrl(filesProperty) {
   if (!filesProperty || !filesProperty.files || filesProperty.files.length === 0) {
     return null
   }
@@ -41,9 +42,9 @@ function extractImageUrl(filesProperty) {
 
   // Handle both external files and uploaded files
   if (file.type === "external") {
-    return file.external.url
+    return await cacheNotionImage(file.external.url)
   } else if (file.type === "file") {
-    return file.file.url
+    return await cacheNotionImage(file.file.url)
   }
 
   return null
@@ -144,35 +145,37 @@ export const fetchAllMealPlansFromNotion = cache(async () => {
     })
 
     // Process the results
-    const mealPlans = response.results.map((page) => {
-      const properties = page.properties
+    const mealPlans = await Promise.all(
+      response.results.map(async (page) => {
+        const properties = page.properties
 
-      // Extract title
-      const title = properties["Meal Plan Title"]?.title?.[0]?.plain_text || "Untitled Meal Plan"
+        // Extract title
+        const title = properties["Meal Plan Title"]?.title?.[0]?.plain_text || "Untitled Meal Plan"
 
-      // Extract preview image
-      const previewImage = extractImageUrl(properties["Image Preview"])
+        // Extract preview image
+        const previewImage = await extractImageUrl(properties["Image Preview"])
 
-      // Extract serves (number of people)
-      let serves = 4 // Default to 4 if not specified
-      if (properties["Serves"] && properties["Serves"].number) {
-        serves = properties["Serves"].number
-      }
+        // Extract serves (number of people)
+        let serves = 4 // Default to 4 if not specified
+        if (properties["Serves"] && properties["Serves"].number) {
+          serves = properties["Serves"].number
+        }
 
-      // Generate a slug from the title
-      const slug = title
-        .toLowerCase()
-        .replace(/[^\w\s]/g, "")
-        .replace(/\s+/g, "-")
+        // Generate a slug from the title
+        const slug = title
+          .toLowerCase()
+          .replace(/[^\w\s]/g, "")
+          .replace(/\s+/g, "-")
 
-      return {
-        id: page.id,
-        title,
-        slug,
-        previewImage,
-        serves,
-      }
-    })
+        return {
+          id: page.id,
+          title,
+          slug,
+          previewImage,
+          serves,
+        }
+      }),
+    )
 
     return mealPlans
   } catch (error) {
@@ -195,7 +198,7 @@ export const fetchMealPlanByIdFromNotion = cache(async (id) => {
     const title = properties["Meal Plan Title"]?.title?.[0]?.plain_text || "Untitled Meal Plan"
 
     // Extract preview image
-    const previewImage = extractImageUrl(properties["Image Preview"])
+    const previewImage = await extractImageUrl(properties["Image Preview"])
 
     // Extract serves (number of people)
     let serves = 4 // Default to 4 if not specified
@@ -204,7 +207,7 @@ export const fetchMealPlanByIdFromNotion = cache(async (id) => {
     }
 
     // Extract meal images
-    const mealImages =
+    const rawMealImages =
       properties["Meal Images"]?.files
         ?.map((file) => {
           if (file.type === "external") {
@@ -215,6 +218,7 @@ export const fetchMealPlanByIdFromNotion = cache(async (id) => {
           return null
         })
         .filter((url) => url) || []
+    const mealImages = await cacheNotionImages(rawMealImages)
 
     // Generate a slug from the title
     const slug = title

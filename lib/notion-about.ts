@@ -1,5 +1,6 @@
 import { Client } from "@notionhq/client"
 import { cache } from "react"
+import { cacheNotionImage } from "./image-cache"
 
 const notion = new Client({
   auth: process.env.NOTION_KEY,
@@ -166,9 +167,9 @@ async function getPropertyImage(pageId: string, propertyName: string): Promise<s
     const file = property.files[0]
 
     if (file.type === "external") {
-      return file.external.url
+      return await cacheNotionImage(file.external.url)
     } else if (file.type === "file") {
-      return file.file.url
+      return await cacheNotionImage(file.file.url)
     }
 
     return ""

@@ -1,3 +1,5 @@
+import { cacheNotionImages } from "./image-cache"
+
 // Format database ID with hyphens if needed
 function formatDatabaseId(id: string): string {
   if (!id) return ""
@@ -204,14 +206,15 @@ export async function fetchRecipesFromNotion() {
       return []
     }
 
-    return response.results
-      .map((page: any) => {
+    const recipes = await Promise.all(
+      response.results.map(async (page: any) => {
         try {
           const properties = page.properties || {}
 
           const title = getPropertyValue(properties["Recipe Name"]) || "Untitled Recipe"
           const description = getPropertyValue(properties.Description) || ""
-          const images = getPropertyValue(properties["Title Image"]) || []
+          const rawImages = getPropertyValue(properties["Title Image"]) || []
+          const images = await cacheNotionImages(rawImages)
           const prepTime = getPropertyValue(properties["Prep Time"]) || ""
           const cookTime = getPropertyValue(properties["Cook Time"]) || ""
           const serves = getPropertyValue(properties.Serves) || 4
@@ -253,8 +256,10 @@ export async function fetchRecipesFromNotion() {
           console.error("Error processing recipe from Notion:", error)
           return null
         }
-      })
-      .filter(Boolean)
+      }),
+    )
+
+    return recipes.filter(Boolean)
   } catch (error) {
     console.error("Error fetching recipes from Notion:", error)
     return []
@@ -310,14 +315,15 @@ export async function fetchFeaturedRecipesFromNotion() {
       return []
     }
 
-    return response.results
-      .map((page: any) => {
+    const recipes = await Promise.all(
+      response.results.map(async (page: any) => {
         try {
           const properties = page.properties || {}
 
           const title = getPropertyValue(properties["Recipe Name"]) || "Untitled Recipe"
           const description = getPropertyValue(properties.Description) || ""
-          const images = getPropertyValue(properties["Title Image"]) || []
+          const rawImages = getPropertyValue(properties["Title Image"]) || []
+          const images = await cacheNotionImages(rawImages)
           const prepTime = getPropertyValue(properties["Prep Time"]) || ""
           const cookTime = getPropertyValue(properties["Cook Time"]) || ""
           const serves = getPropertyValue(properties.Serves) || 4
@@ -358,8 +364,10 @@ export async function fetchFeaturedRecipesFromNotion() {
           console.error("Error processing featured recipe from Notion:", error)
           return null
         }
-      })
-      .filter(Boolean)
+      }),
+    )
+
+    return recipes.filter(Boolean)
   } catch (error) {
     console.error("Error fetching featured recipes from Notion:", error)
     return []
@@ -379,7 +387,8 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
 
     const title = getPropertyValue(properties["Recipe Name"]) || "Untitled Recipe"
     const description = getPropertyValue(properties.Description) || ""
-    const images = getPropertyValue(properties["Title Image"]) || []
+    const rawImages = getPropertyValue(properties["Title Image"]) || []
+    const images = await cacheNotionImages(rawImages)
     const prepTime = getPropertyValue(properties["Prep Time"]) || ""
     const cookTime = getPropertyValue(properties["Cook Time"]) || ""
     const serves = getPropertyValue(properties.Serves) || 4
