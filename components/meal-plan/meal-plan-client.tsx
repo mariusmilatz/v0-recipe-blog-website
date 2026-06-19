@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Calendar, Clock, Printer, ShoppingBag, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, Printer, ShoppingBag, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,10 +10,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ServingsAdjuster } from "./servings-adjuster"
 
+// Convert a meal title to a recipe slug (same logic used in the recipe pages)
+function titleToSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+}
+
+// Only link if the meal has a real title (not "No meal" or empty)
+function isRealMeal(title: string): boolean {
+  return !!title && title.toLowerCase() !== "no meal" && title.trim() !== ""
+}
+
 export default function MealPlanClient({ mealPlan }) {
   const [activeDay, setActiveDay] = useState("monday")
   const [activeImage, setActiveImage] = useState(0)
-  // Use the serves value from the database, defaulting to 4 if not present
   const defaultServings = mealPlan.serves || mealPlan.servings || 4
   const [servings, setServings] = useState(defaultServings)
   const [adjustedShoppingList, setAdjustedShoppingList] = useState({
@@ -23,35 +35,28 @@ export default function MealPlanClient({ mealPlan }) {
     spices: mealPlan.shoppingList?.spices || "",
   })
 
-  // Update shopping list quantities when servings change
   useEffect(() => {
-    // Use the serves value from the database, defaulting to 4 if not present
     const originalServings = mealPlan.serves || mealPlan.servings || 4
     const ratio = servings / originalServings
 
-    // Helper function to adjust quantities in a list
     const adjustQuantities = (list) => {
       if (!list) return ""
 
       return list
         .split(",")
         .map((item) => {
-          // Try to find a quantity at the beginning of the item
           const match = item.trim().match(/^(\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s*(.+)$/)
           if (match) {
             const [_, quantity, rest] = match
-            // Handle fractions like "1/2"
             if (quantity.includes("/")) {
               const [numerator, denominator] = quantity.split("/").map((n) => Number.parseFloat(n.trim()))
               const decimal = numerator / denominator
               const adjusted = decimal * ratio
 
-              // Format back to a fraction or decimal depending on the value
               let formattedQuantity
               if (adjusted === Math.floor(adjusted)) {
                 formattedQuantity = adjusted.toString()
               } else if (adjusted < 1) {
-                // Try to convert back to a simple fraction
                 const gcd = (a, b) => (b ? gcd(b, a % b) : a)
                 const precision = 100
                 const numerator = Math.round(adjusted * precision)
@@ -59,7 +64,6 @@ export default function MealPlanClient({ mealPlan }) {
                 const divisor = gcd(numerator, denominator)
                 formattedQuantity = `${numerator / divisor}/${denominator / divisor}`
               } else {
-                // Mixed number
                 const whole = Math.floor(adjusted)
                 const fraction = adjusted - whole
                 if (fraction === 0) {
@@ -76,12 +80,11 @@ export default function MealPlanClient({ mealPlan }) {
 
               return `${formattedQuantity} ${rest}`
             } else {
-              // Simple number
               const adjusted = Number.parseFloat(quantity) * ratio
               return `${adjusted % 1 === 0 ? adjusted : adjusted.toFixed(1)} ${rest}`
             }
           }
-          return item // Return unchanged if no quantity found
+          return item
         })
         .join(", ")
     }
@@ -94,7 +97,6 @@ export default function MealPlanClient({ mealPlan }) {
     })
   }, [servings, mealPlan])
 
-  // Format shopping list items as an array
   const formatShoppingList = (listText) => {
     if (!listText) return []
     return listText
@@ -103,10 +105,8 @@ export default function MealPlanClient({ mealPlan }) {
       .filter((item) => item)
   }
 
-  // Format meal prep tips as an array
   const formatMealPrepTips = (tipsText) => {
     if (!tipsText) return []
-    // Split by bullet points or new lines
     return tipsText
       .split(/•|\n/)
       .map((tip) => tip.trim())
@@ -119,10 +119,8 @@ export default function MealPlanClient({ mealPlan }) {
   const spicesItems = formatShoppingList(adjustedShoppingList.spices)
   const mealPrepTips = formatMealPrepTips(mealPlan.mealPrepTips)
 
-  // Check if we have meal images
   const hasMealImages = mealPlan.mealImages && mealPlan.mealImages.length > 0
 
-  // Navigation functions for image gallery
   const goToPreviousImage = () => {
     if (!hasMealImages) return
     setActiveImage((prev) => (prev === 0 ? mealPlan.mealImages.length - 1 : prev - 1))
@@ -133,16 +131,6 @@ export default function MealPlanClient({ mealPlan }) {
     setActiveImage((prev) => (prev === mealPlan.mealImages.length - 1 ? 0 : prev + 1))
   }
 
-  // Check if we have nutritional info
-  const hasNutritionalInfo =
-    mealPlan.nutritionalInfo &&
-    (mealPlan.nutritionalInfo.calories.amount ||
-      mealPlan.nutritionalInfo.protein.amount ||
-      mealPlan.nutritionalInfo.carbohydrates.amount ||
-      mealPlan.nutritionalInfo.fat.amount ||
-      mealPlan.nutritionalInfo.fiber.amount)
-
-  // Handle printing meal plan
   const handlePrintMealPlan = () => {
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
@@ -163,10 +151,7 @@ export default function MealPlanClient({ mealPlan }) {
           .meal-title { font-weight: bold; }
           .meal-time { color: #666; font-size: 0.875rem; }
           .footer { margin-top: 2rem; text-align: center; font-size: 0.75rem; color: #666; }
-          @media print {
-            body { padding: 0; }
-            .no-print { display: none; }
-          }
+          @media print { body { padding: 0; } .no-print { display: none; } }
         </style>
       </head>
       <body>
@@ -174,10 +159,8 @@ export default function MealPlanClient({ mealPlan }) {
           <button onclick="window.print()">Print</button>
           <button onclick="window.close()">Close</button>
         </div>
-        
         <h1>${mealPlan.title}</h1>
         <p>A 7-day meal plan for ${servings} ${servings === 1 ? "person" : "people"}</p>
-        
         ${Object.entries(mealPlan.meals)
           .map(
             ([day, meals]) => `
@@ -198,19 +181,8 @@ export default function MealPlanClient({ mealPlan }) {
         `,
           )
           .join("")}
-        
-        <div class="footer">
-          <p>Vegan Side Project - ${new Date().toLocaleDateString()}</p>
-        </div>
-        
-        <script>
-          // Automatically trigger print dialog when the page is fully loaded
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 500);
-          };
-        </script>
+        <div class="footer"><p>Vegan Side Project - ${new Date().toLocaleDateString()}</p></div>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
       </body>
       </html>
     `
@@ -220,7 +192,6 @@ export default function MealPlanClient({ mealPlan }) {
     printWindow.document.close()
   }
 
-  // Handle printing grocery list
   const handlePrintGroceryList = () => {
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
@@ -239,10 +210,7 @@ export default function MealPlanClient({ mealPlan }) {
           li { margin-bottom: 0.25rem; }
           .section { margin-bottom: 1.5rem; }
           .footer { margin-top: 2rem; text-align: center; font-size: 0.75rem; color: #666; }
-          @media print {
-            body { padding: 0; }
-            .no-print { display: none; }
-          }
+          @media print { body { padding: 0; } .no-print { display: none; } }
         </style>
       </head>
       <body>
@@ -250,74 +218,14 @@ export default function MealPlanClient({ mealPlan }) {
           <button onclick="window.print()">Print</button>
           <button onclick="window.close()">Close</button>
         </div>
-        
         <h1>${mealPlan.title} - Grocery List</h1>
         <p>Shopping list for ${servings} ${servings === 1 ? "person" : "people"}</p>
-        
-        ${
-          produceItems.length > 0
-            ? `
-          <div class="section">
-            <h2>Produce</h2>
-            <ul>
-              ${produceItems.map((item) => `<li>${item}</li>`).join("")}
-            </ul>
-          </div>
-        `
-            : ""
-        }
-        
-        ${
-          pantryItems.length > 0
-            ? `
-          <div class="section">
-            <h2>Pantry</h2>
-            <ul>
-              ${pantryItems.map((item) => `<li>${item}</li>`).join("")}
-            </ul>
-          </div>
-        `
-            : ""
-        }
-        
-        ${
-          refrigeratedItems.length > 0
-            ? `
-          <div class="section">
-            <h2>Refrigerated</h2>
-            <ul>
-              ${refrigeratedItems.map((item) => `<li>${item}</li>`).join("")}
-            </ul>
-          </div>
-        `
-            : ""
-        }
-        
-        ${
-          spicesItems.length > 0
-            ? `
-          <div class="section">
-            <h2>Spices & Seasonings</h2>
-            <ul>
-              ${spicesItems.map((item) => `<li>${item}</li>`).join("")}
-            </ul>
-          </div>
-        `
-            : ""
-        }
-        
-        <div class="footer">
-          <p>Vegan Side Project - ${new Date().toLocaleDateString()}</p>
-        </div>
-        
-        <script>
-          // Automatically trigger print dialog when the page is fully loaded
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 500);
-          };
-        </script>
+        ${produceItems.length > 0 ? `<div class="section"><h2>Produce</h2><ul>${produceItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
+        ${pantryItems.length > 0 ? `<div class="section"><h2>Pantry</h2><ul>${pantryItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
+        ${refrigeratedItems.length > 0 ? `<div class="section"><h2>Refrigerated</h2><ul>${refrigeratedItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
+        ${spicesItems.length > 0 ? `<div class="section"><h2>Spices & Seasonings</h2><ul>${spicesItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
+        <div class="footer"><p>Vegan Side Project - ${new Date().toLocaleDateString()}</p></div>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
       </body>
       </html>
     `
@@ -354,10 +262,8 @@ export default function MealPlanClient({ mealPlan }) {
                     alt={`Meal image ${activeImage + 1}`}
                     className="w-full h-full object-cover"
                   />
-
                   {mealPlan.mealImages.length > 1 && (
                     <>
-                      {/* Left arrow */}
                       <button
                         onClick={goToPreviousImage}
                         className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
@@ -365,8 +271,6 @@ export default function MealPlanClient({ mealPlan }) {
                       >
                         <ChevronLeft className="h-6 w-6" />
                       </button>
-
-                      {/* Right arrow */}
                       <button
                         onClick={goToNextImage}
                         className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
@@ -374,15 +278,12 @@ export default function MealPlanClient({ mealPlan }) {
                       >
                         <ChevronRight className="h-6 w-6" />
                       </button>
-
-                      {/* Image counter */}
                       <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md">
                         {activeImage + 1} / {mealPlan.mealImages.length}
                       </div>
                     </>
                   )}
                 </div>
-
                 {mealPlan.mealImages.length > 1 && (
                   <div className="flex gap-2 overflow-x-auto pb-2">
                     {mealPlan.mealImages.map((image, index) => (
@@ -393,11 +294,7 @@ export default function MealPlanClient({ mealPlan }) {
                           activeImage === index ? "ring-2 ring-[#6a994e]" : "opacity-70"
                         }`}
                       >
-                        <img
-                          src={image || "/placeholder.svg"}
-                          alt={`Thumbnail ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={image || "/placeholder.svg"} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
                       </button>
                     ))}
                   </div>
@@ -428,6 +325,7 @@ export default function MealPlanClient({ mealPlan }) {
                 <TabsTrigger value="grocery-list">Grocery List</TabsTrigger>
                 <TabsTrigger value="prep-tips">Prep Tips</TabsTrigger>
               </TabsList>
+
               <TabsContent value="meal-plan" className="mt-6">
                 <div className="space-y-6">
                   {Object.entries(mealPlan.meals).map(([day, meals]) => (
@@ -441,7 +339,17 @@ export default function MealPlanClient({ mealPlan }) {
                             <div key={mealType}>
                               <h3 className="font-medium text-sm text-muted-foreground mb-2 capitalize">{mealType}</h3>
                               <div className="flex justify-between items-center">
-                                <span className="font-medium">{meal.title}</span>
+                                {isRealMeal(meal.title) ? (
+                                  <Link
+                                    href={`/recipes/${titleToSlug(meal.title)}`}
+                                    className="font-medium text-[#6a994e] hover:underline flex items-center gap-1 group"
+                                  >
+                                    {meal.title}
+                                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </Link>
+                                ) : (
+                                  <span className="font-medium text-muted-foreground">{meal.title}</span>
+                                )}
                                 <span className="text-sm text-muted-foreground">{meal.time}</span>
                               </div>
                             </div>
@@ -452,6 +360,7 @@ export default function MealPlanClient({ mealPlan }) {
                   ))}
                 </div>
               </TabsContent>
+
               <TabsContent value="grocery-list" className="mt-6">
                 <Card>
                   <CardHeader>
@@ -464,9 +373,7 @@ export default function MealPlanClient({ mealPlan }) {
                         <div>
                           <h3 className="font-medium mb-2">Produce</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            {produceItems.map((item, index) => (
-                              <li key={index}>{item}</li>
-                            ))}
+                            {produceItems.map((item, index) => <li key={index}>{item}</li>)}
                           </ul>
                         </div>
                       )}
@@ -474,9 +381,7 @@ export default function MealPlanClient({ mealPlan }) {
                         <div>
                           <h3 className="font-medium mb-2">Pantry</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            {pantryItems.map((item, index) => (
-                              <li key={index}>{item}</li>
-                            ))}
+                            {pantryItems.map((item, index) => <li key={index}>{item}</li>)}
                           </ul>
                         </div>
                       )}
@@ -484,9 +389,7 @@ export default function MealPlanClient({ mealPlan }) {
                         <div>
                           <h3 className="font-medium mb-2">Refrigerated</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            {refrigeratedItems.map((item, index) => (
-                              <li key={index}>{item}</li>
-                            ))}
+                            {refrigeratedItems.map((item, index) => <li key={index}>{item}</li>)}
                           </ul>
                         </div>
                       )}
@@ -494,9 +397,7 @@ export default function MealPlanClient({ mealPlan }) {
                         <div>
                           <h3 className="font-medium mb-2">Spices & Seasonings</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            {spicesItems.map((item, index) => (
-                              <li key={index}>{item}</li>
-                            ))}
+                            {spicesItems.map((item, index) => <li key={index}>{item}</li>)}
                           </ul>
                         </div>
                       )}
@@ -504,6 +405,7 @@ export default function MealPlanClient({ mealPlan }) {
                   </CardContent>
                 </Card>
               </TabsContent>
+
               <TabsContent value="prep-tips" className="mt-6">
                 <Card>
                   <CardHeader>
@@ -518,17 +420,9 @@ export default function MealPlanClient({ mealPlan }) {
                         <>
                           <li>Prep vegetables for multiple meals at once to save time during the week.</li>
                           <li>Cook grains like rice and quinoa in larger batches to use throughout the week.</li>
-                          <li>
-                            Make sauces and dressings ahead of time and store in the refrigerator for up to 5 days.
-                          </li>
-                          <li>
-                            Wash and dry salad greens, then store with a paper towel in an airtight container to keep
-                            fresh.
-                          </li>
-                          <li>
-                            Consider batch cooking some components on Sunday to make weeknight meals come together more
-                            quickly.
-                          </li>
+                          <li>Make sauces and dressings ahead of time and store in the refrigerator for up to 5 days.</li>
+                          <li>Wash and dry salad greens, then store with a paper towel in an airtight container to keep fresh.</li>
+                          <li>Consider batch cooking some components on Sunday to make weeknight meals come together more quickly.</li>
                         </>
                       )}
                     </ul>
@@ -580,18 +474,12 @@ export default function MealPlanClient({ mealPlan }) {
                   <TableRow>
                     <TableCell>Protein</TableCell>
                     <TableCell className="text-right">{mealPlan.nutritionalInfo?.protein.amount || "75g"}</TableCell>
-                    <TableCell className="text-right">
-                      {mealPlan.nutritionalInfo?.protein.percentage || "150%"}
-                    </TableCell>
+                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.protein.percentage || "150%"}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell>Carbohydrates</TableCell>
-                    <TableCell className="text-right">
-                      {mealPlan.nutritionalInfo?.carbohydrates.amount || "280g"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {mealPlan.nutritionalInfo?.carbohydrates.percentage || "93%"}
-                    </TableCell>
+                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.carbohydrates.amount || "280g"}</TableCell>
+                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.carbohydrates.percentage || "93%"}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell>Fat</TableCell>
@@ -618,22 +506,10 @@ export default function MealPlanClient({ mealPlan }) {
             </CardHeader>
             <CardContent>
               <ul className="space-y-2 text-sm">
-                <li>
-                  <span className="font-medium">For higher protein:</span> Add tofu, tempeh, or legumes to meals, or
-                  include protein smoothies as snacks.
-                </li>
-                <li>
-                  <span className="font-medium">For gluten-free:</span> Substitute pasta with gluten-free alternatives
-                  and use gluten-free bread and tortillas.
-                </li>
-                <li>
-                  <span className="font-medium">For lower budget:</span> Focus on the pantry staples and seasonal
-                  produce; frozen vegetables can be substituted for fresh.
-                </li>
-                <li>
-                  <span className="font-medium">For non-vegans:</span> These meals work well as sides with animal
-                  protein if cooking for mixed dietary preferences.
-                </li>
+                <li><span className="font-medium">For higher protein:</span> Add tofu, tempeh, or legumes to meals, or include protein smoothies as snacks.</li>
+                <li><span className="font-medium">For gluten-free:</span> Substitute pasta with gluten-free alternatives and use gluten-free bread and tortillas.</li>
+                <li><span className="font-medium">For lower budget:</span> Focus on the pantry staples and seasonal produce; frozen vegetables can be substituted for fresh.</li>
+                <li><span className="font-medium">For non-vegans:</span> These meals work well as sides with animal protein if cooking for mixed dietary preferences.</li>
               </ul>
             </CardContent>
           </Card>
