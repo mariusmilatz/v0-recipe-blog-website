@@ -50,6 +50,11 @@ export default function RecipesClient({
   const [query, setQuery] = useState("")
   const [activeTab, setActiveTab] = useState(initialTab)
   const [showDropdown, setShowDropdown] = useState(false)
+
+  // Sync tab when navigating from footer links while already on /recipes
+  useEffect(() => {
+    setActiveTab(initialTab)
+  }, [initialTab])
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Build a flat list of all suggestion tokens (courses + cuisines + recipe titles)
