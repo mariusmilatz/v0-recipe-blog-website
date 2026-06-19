@@ -23,43 +23,105 @@ function isRealMeal(title: string): boolean {
   return !!title && title.toLowerCase() !== "no meal" && title.trim() !== ""
 }
 
-// Match a meal title to a recipe from the recipes list
-function findRecipe(title: string, recipes: any[]): any | null {
-  if (!title || !recipes?.length) return null
-  const slug = titleToSlug(title)
-  return (
-    recipes.find((r: any) => titleToSlug(r.title || "") === slug) ||
-    recipes.find((r: any) =>
-      (r.title || "").toLowerCase().trim() === title.toLowerCase().trim()
-    ) ||
-    null
+// Smart match: handles "Reheat: Cauliflower Curry" → "Cauliflower Curry", etc.
+function findRecipe(mealTitle: string, recipes: any[]): any | null {
+  if (!mealTitle || !recipes?.length) return null
+
+  const slug = titleToSlug(mealTitle)
+
+  // 1. Exact slug match
+  let match = recipes.find((r: any) => titleToSlug(r.title || "") === slug)
+  if (match) return match
+
+  // 2. Exact title match (case-insensitive)
+  match = recipes.find(
+    (r: any) => (r.title || "").toLowerCase().trim() === mealTitle.toLowerCase().trim()
   )
+  if (match) return match
+
+  // 3. Strip common prefixes and retry
+  const stripped = mealTitle
+    .replace(/^(reheat|leftover|leftover of|use leftover|batch cook|make)\s*[:\-]\s*/i, "")
+    .trim()
+
+  if (stripped !== mealTitle) {
+    const strippedSlug = titleToSlug(stripped)
+    match = recipes.find((r: any) => titleToSlug(r.title || "") === strippedSlug)
+    if (match) return match
+
+    const strippedLower = stripped.toLowerCase()
+    match = recipes.find(
+      (r: any) =>
+        (r.title || "").toLowerCase().includes(strippedLower) ||
+        strippedLower.includes((r.title || "").toLowerCase())
+    )
+    if (match) return match
+  }
+
+  // 4. Partial match on full title
+  const mealLower = mealTitle.toLowerCase()
+  match = recipes.find(
+    (r: any) =>
+      mealLower.includes((r.title || "").toLowerCase()) ||
+      (r.title || "").toLowerCase().includes(mealLower)
+  )
+  return match || null
 }
 
-// Format ingredients / instructions whether they're arrays or strings
-function toLines(value: any): string[] {
-  if (!value) return []
-  if (Array.isArray(value)) return value.map(String).filter(Boolean)
-  return String(value)
-    .split(/\n|(?<=\d\.)/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
+// Build the print HTML for one recipe card
+// Uses the real data format: ingredientSections, instructions (typed items), tips (string[])
 function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): string {
   const title = meal?.title || "—"
+
   if (!recipe) {
     return `
       <div class="recipe">
         <div class="meal-label">${mealType}</div>
         <h2 class="recipe-title">${title}</h2>
-        <p class="not-found">Full recipe not found in the recipe library.</p>
+        <p class="not-found">Recipe not found in library — add it to Notion to include it here.</p>
       </div>`
   }
 
-  const ingredients = toLines(recipe.ingredients)
-  const instructions = toLines(recipe.instructions)
-  const tips = toLines(recipe.tips)
+  // ingredientSections: { subtitle: string | null; items: string[] }[]
+  const ingredientsHtml = (() => {
+    const sections: { subtitle: string | null; items: string[] }[] = recipe.ingredientSections || []
+    if (!sections.length) return ""
+    return sections
+      .map(
+        (section) => `
+        ${section.subtitle ? `<p class="section-title">${section.subtitle}</p>` : ""}
+        <ul>${section.items.map((item) => `<li>${item}</li>`).join("")}</ul>
+      `
+      )
+      .join("")
+  })()
+
+  // instructions: { type: "step" | "subtitle"; content: string }[]
+  const instructionsHtml = (() => {
+    const items: { type: "step" | "subtitle"; content: string }[] = recipe.instructions || []
+    if (!items.length) return ""
+    let html = ""
+    let inList = false
+    for (const item of items) {
+      if (item.type === "subtitle") {
+        if (inList) { html += "</ol>"; inList = false }
+        html += `<p class="section-title">${item.content}</p><ol>`
+        inList = true
+      } else {
+        if (!inList) { html += "<ol>"; inList = true }
+        html += `<li>${item.content}</li>`
+      }
+    }
+    if (inList) html += "</ol>"
+    return html
+  })()
+
+  // tips: string[]
+  const tipsHtml = (() => {
+    const tips: string[] = recipe.tips || []
+    if (!tips.length) return ""
+    return `<ul class="tips">${tips.map((t) => `<li>${t}</li>`).join("")}</ul>`
+  })()
 
   return `
     <div class="recipe">
@@ -67,23 +129,13 @@ function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): strin
       <h2 class="recipe-title">${recipe.title || title}</h2>
       ${recipe.description ? `<p class="desc">${recipe.description}</p>` : ""}
       <div class="meta">
-        ${recipe.servings ? `<span>Serves ${recipe.servings}</span>` : ""}
+        ${recipe.serves ? `<span>Serves ${recipe.serves}</span>` : ""}
         ${recipe.prepTime ? `<span>Prep ${recipe.prepTime}</span>` : ""}
         ${recipe.cookTime ? `<span>Cook ${recipe.cookTime}</span>` : ""}
-        ${recipe.totalTime ? `<span>Total ${recipe.totalTime}</span>` : ""}
       </div>
-      ${ingredients.length ? `
-        <h3>Ingredients</h3>
-        <ul>${ingredients.map((i) => `<li>${i}</li>`).join("")}</ul>
-      ` : ""}
-      ${instructions.length ? `
-        <h3>Instructions</h3>
-        <ol>${instructions.map((s) => `<li>${s}</li>`).join("")}</ol>
-      ` : ""}
-      ${tips.length ? `
-        <h3>Tips</h3>
-        <ul class="tips">${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
-      ` : ""}
+      ${ingredientsHtml ? `<h3>Ingredients</h3>${ingredientsHtml}` : ""}
+      ${instructionsHtml ? `<h3>Instructions</h3>${instructionsHtml}` : ""}
+      ${tipsHtml ? `<h3>Tips & Notes</h3>${tipsHtml}` : ""}
     </div>`
 }
 
@@ -284,6 +336,7 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
           .desc { color: #555; font-style: italic; margin-bottom: 0.75rem; font-size: 0.9rem; }
           .meta { display: flex; gap: 1.25rem; font-size: 0.8rem; color: #777; margin-bottom: 1rem; font-family: system-ui, sans-serif; }
           .not-found { color: #999; font-style: italic; font-size: 0.85rem; }
+          .section-title { font-weight: 700; font-size: 0.85rem; margin: 0.75rem 0 0.25rem; color: #444; }
 
           h3 { font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6a994e; margin: 1.25rem 0 0.5rem; }
           ul, ol { padding-left: 1.4rem; }
