@@ -10,6 +10,39 @@ interface PrintRecipeProps {
   adjustedIngredients?: string[][]
 }
 
+// Strip the leading "- " that Notion stores on ingredient lines
+function cleanIngredient(item: string): string {
+  return item.replace(/^\s*-\s*/, "").trim()
+}
+
+// Build the instructions HTML, handling { type: "step" | "subtitle", content } objects
+function buildInstructionsHtml(instructions: any[]): string {
+  if (!instructions || instructions.length === 0) return ""
+
+  let html = ""
+  let inList = false
+  let stepNumber = 0
+
+  for (const item of instructions) {
+    // Support both plain strings (legacy) and {type, content} objects
+    if (typeof item === "string") {
+      if (!inList) { html += "<ol>"; inList = true }
+      stepNumber++
+      html += `<li>${item}</li>`
+    } else if (item?.type === "subtitle") {
+      if (inList) { html += "</ol>"; inList = false; stepNumber = 0 }
+      html += `<h3>${item.content}</h3>`
+    } else {
+      if (!inList) { html += "<ol>"; inList = true }
+      stepNumber++
+      html += `<li>${item.content || ""}</li>`
+    }
+  }
+
+  if (inList) html += "</ol>"
+  return html
+}
+
 export function PrintRecipe({ recipe, adjustedServings, adjustedIngredients }: PrintRecipeProps) {
   const [isPrinting, setIsPrinting] = useState(false)
 
@@ -17,7 +50,6 @@ export function PrintRecipe({ recipe, adjustedServings, adjustedIngredients }: P
     if (isPrinting) return
     setIsPrinting(true)
 
-    // Create a new window for printing
     const printWindow = window.open("", "_blank")
     if (!printWindow) {
       alert("Please allow popups for this website to print recipes.")
@@ -25,13 +57,38 @@ export function PrintRecipe({ recipe, adjustedServings, adjustedIngredients }: P
       return
     }
 
-    // Get the current date
     const currentDate = new Date().toLocaleDateString()
-
-    // Determine the serving size to display
     const servingSize = adjustedServings || (recipe.serves ? Number.parseInt(recipe.serves) : 2)
 
-    // Generate the HTML content for printing
+    const ingredientsHtml =
+      recipe.ingredientSections && recipe.ingredientSections.length > 0
+        ? `<h2>Ingredients</h2>
+           ${recipe.ingredientSections
+             .map((section: any, sectionIndex: number) => {
+               const items: string[] =
+                 adjustedServings && adjustedIngredients && adjustedIngredients[sectionIndex]
+                   ? adjustedIngredients[sectionIndex]
+                   : section.items
+
+               return `
+                 ${section.subtitle ? `<h3>${section.subtitle}</h3>` : ""}
+                 <ul>
+                   ${items.map((item) => `<li>${cleanIngredient(item)}</li>`).join("")}
+                 </ul>`
+             })
+             .join("")}`
+        : ""
+
+    const instructionsHtml =
+      recipe.instructions && recipe.instructions.length > 0
+        ? `<h2>Instructions</h2>${buildInstructionsHtml(recipe.instructions)}`
+        : ""
+
+    const tipsHtml =
+      recipe.tips && recipe.tips.length > 0
+        ? `<h2>Tips & Notes</h2><ul>${recipe.tips.map((tip: string) => `<li>${tip}</li>`).join("")}</ul>`
+        : ""
+
     const printContent = `
       <!DOCTYPE html>
       <html lang="en">
@@ -40,149 +97,84 @@ export function PrintRecipe({ recipe, adjustedServings, adjustedIngredients }: P
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${recipe.title} | Vegan Side Project</title>
         <style>
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
           body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: Georgia, serif;
             line-height: 1.6;
-            color: #333;
-            max-width: 800px;
+            color: #222;
+            max-width: 720px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 2rem;
+            font-size: 15px;
           }
-          h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-          }
+          h1 { font-size: 1.6rem; margin-bottom: 0.5rem; color: #1a1a1a; }
           h2 {
-            font-size: 20px;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
+            font-family: system-ui, sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6a994e;
+            margin: 1.75rem 0 0.6rem;
+            border-bottom: 2px solid #6a994e;
+            padding-bottom: 0.3rem;
           }
           h3 {
-            font-size: 18px;
-            margin-top: 15px;
-            margin-bottom: 10px;
-            color: #6a994e;
+            font-family: system-ui, sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #444;
+            margin: 1rem 0 0.3rem;
           }
-          p {
-            margin-bottom: 10px;
-          }
-          .recipe-meta {
+          p { margin-bottom: 0.75rem; color: #444; font-style: italic; }
+          .meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
-            margin: 15px 0;
-            font-size: 14px;
-          }
-          .recipe-meta div {
-            display: flex;
-            align-items: center;
-          }
-          ul, ol {
-            padding-left: 25px;
-            margin-bottom: 20px;
-          }
-          li {
-            margin-bottom: 8px;
-          }
-          .footer {
-            margin-top: 30px;
-            font-size: 12px;
-            text-align: center;
+            gap: 1.25rem;
+            margin: 0.75rem 0 1.5rem;
+            font-size: 0.85rem;
+            font-family: system-ui, sans-serif;
             color: #666;
+          }
+          ul { padding-left: 1.4rem; margin-bottom: 0.5rem; }
+          ol { padding-left: 1.4rem; margin-bottom: 0.5rem; }
+          li { margin-bottom: 0.4rem; font-size: 0.92rem; }
+          ol li { margin-bottom: 0.6rem; }
+          .footer {
+            margin-top: 2.5rem;
+            font-size: 0.75rem;
+            text-align: center;
+            color: #aaa;
+            font-family: system-ui, sans-serif;
             border-top: 1px solid #eee;
-            padding-top: 10px;
+            padding-top: 1rem;
           }
-          @media print {
-            body {
-              padding: 0;
-            }
-            .no-print {
-              display: none;
-            }
-          }
+          @media print { body { padding: 0.5rem; } }
         </style>
       </head>
       <body>
         <h1>${recipe.title}</h1>
-        <p>${recipe.description || ""}</p>
-        
-        <div class="recipe-meta">
-          ${recipe.prepTime ? `<div>Prep: ${recipe.prepTime}</div>` : ""}
-          ${recipe.cookTime ? `<div>Cook: ${recipe.cookTime}</div>` : ""}
-          <div>Serves: ${servingSize}</div>
-          ${recipe.course ? `<div>Course: ${recipe.course}</div>` : ""}
-          ${recipe.cuisine ? `<div>Cuisine: ${recipe.cuisine}</div>` : ""}
+        ${recipe.description ? `<p>${recipe.description}</p>` : ""}
+        <div class="meta">
+          ${recipe.prepTime ? `<span>Prep: ${recipe.prepTime}</span>` : ""}
+          ${recipe.cookTime ? `<span>Cook: ${recipe.cookTime}</span>` : ""}
+          <span>Serves: ${servingSize}</span>
+          ${recipe.cuisine ? `<span>Cuisine: ${recipe.cuisine}</span>` : ""}
         </div>
-        
-        ${
-          recipe.ingredientSections && recipe.ingredientSections.length > 0
-            ? `
-          <h2>Ingredients</h2>
-          ${recipe.ingredientSections
-            .map(
-              (section, sectionIndex) => `
-            ${section.subtitle ? `<h3>${section.subtitle}</h3>` : ""}
-            <ul>
-              ${(adjustedServings && adjustedIngredients && adjustedIngredients[sectionIndex]
-                ? adjustedIngredients[sectionIndex]
-                : section.items
-              )
-                .map((ingredient) => `<li>${ingredient}</li>`)
-                .join("")}
-            </ul>
-          `,
-            )
-            .join("")}
-        `
-            : ""
-        }
-        
-        ${
-          recipe.instructions && recipe.instructions.length > 0
-            ? `
-          <h2>Instructions</h2>
-          <ol>
-            ${recipe.instructions.map((instruction) => `<li>${instruction}</li>`).join("")}
-          </ol>
-        `
-            : ""
-        }
-        
-        ${
-          recipe.tips && recipe.tips.length > 0
-            ? `
-          <h2>Tips & Notes</h2>
-          <ul>
-            ${recipe.tips.map((tip) => `<li>${tip}</li>`).join("")}
-          </ul>
-        `
-            : ""
-        }
-        
-        <div class="footer">
-          <p>Recipe from Vegan Side Project | Printed on ${currentDate}</p>
-        </div>
-        
-        <script>
-          window.onload = function() {
-            window.print();
-          }
-        </script>
+        ${ingredientsHtml}
+        ${instructionsHtml}
+        ${tipsHtml}
+        <div class="footer">Vegan Side Project · Printed on ${currentDate}</div>
+        <script>window.onload = function() { window.print(); }</script>
       </body>
       </html>
     `
 
-    // Write the content to the new window
     printWindow.document.open()
     printWindow.document.write(printContent)
     printWindow.document.close()
 
-    // Reset the printing state after a delay
-    setTimeout(() => {
-      setIsPrinting(false)
-    }, 1000)
+    setTimeout(() => setIsPrinting(false), 1000)
   }
 
   return (
