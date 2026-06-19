@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 
+export const dynamic = "force-dynamic"
+
 // Helper function to map category names for consistent filtering
 function getCategoryForTab(category: string) {
   const categoryMap: Record<string, string> = {
