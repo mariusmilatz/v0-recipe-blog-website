@@ -146,6 +146,7 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
   const [servings, setServings] = useState(defaultServings)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [selectedPrintDay, setSelectedPrintDay] = useState<string>("all")
+  const [startDay, setStartDay] = useState<string>("monday")
   const [adjustedShoppingList, setAdjustedShoppingList] = useState({
     produce: mealPlan.shoppingList?.produce || "",
     refrigerated: mealPlan.shoppingList?.refrigerated || "",
@@ -239,6 +240,16 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
 
   const hasMealImages = mealPlan.mealImages && mealPlan.mealImages.length > 0
 
+  const ALL_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+  function getOrderedDays(): [string, any][] {
+    const startIndex = ALL_DAYS.indexOf(startDay)
+    const ordered = [...ALL_DAYS.slice(startIndex), ...ALL_DAYS.slice(0, startIndex)]
+    return ordered
+      .filter((day) => mealPlan.meals[day] !== undefined)
+      .map((day) => [day, mealPlan.meals[day]])
+  }
+
   const goToPreviousImage = () => {
     if (!hasMealImages) return
     setActiveImage((prev) => (prev === 0 ? mealPlan.mealImages.length - 1 : prev - 1))
@@ -264,8 +275,8 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
 
     const daysToprint: [string, any][] =
       selectedPrintDay === "all"
-        ? Object.entries(mealPlan.meals)
-        : Object.entries(mealPlan.meals).filter(([day]) => day === selectedPrintDay)
+        ? getOrderedDays()
+        : getOrderedDays().filter(([day]) => day === selectedPrintDay)
 
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
@@ -505,8 +516,29 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
               </TabsList>
 
               <TabsContent value="meal-plan" className="mt-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="text-sm text-muted-foreground">Week starts on:</span>
+                  <div className="flex gap-1">
+                    {[
+                      { key: "monday", label: "Monday" },
+                      { key: "friday", label: "Friday" },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => setStartDay(key)}
+                        className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                          startDay === key
+                            ? "bg-[#6a994e] text-white font-medium"
+                            : "border border-gray-200 text-muted-foreground hover:border-gray-300 hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="space-y-6">
-                  {Object.entries(mealPlan.meals).map(([day, meals]) => (
+                  {getOrderedDays().map(([day, meals]) => (
                     <Card key={day}>
                       <CardHeader>
                         <CardTitle className="capitalize">{day}</CardTitle>
