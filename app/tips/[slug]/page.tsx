@@ -3,14 +3,17 @@ import { notFound } from "next/navigation"
 import { getTipBySlugFromNotion } from "@/lib/notion-tips"
 import { TipClient } from "@/components/tips/tip-client"
 
+export const dynamic = "force-dynamic"
+
 interface TipPageProps {
-  params: {
+  params: Promise<{
     slug: string
-  }
+  }>
 }
 
 export async function generateMetadata({ params }: TipPageProps): Promise<Metadata> {
-  const tip = await getTipBySlugFromNotion(params.slug)
+  const { slug } = await params
+  const tip = await getTipBySlugFromNotion(slug)
 
   if (!tip) {
     return {
@@ -26,7 +29,8 @@ export async function generateMetadata({ params }: TipPageProps): Promise<Metada
 }
 
 export default async function TipPage({ params }: TipPageProps) {
-  const tip = await getTipBySlugFromNotion(params.slug)
+  const { slug } = await params
+  const tip = await getTipBySlugFromNotion(slug)
 
   if (!tip) {
     notFound()
