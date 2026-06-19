@@ -68,7 +68,7 @@ function parseIngredientsWithSubtitles(ingredientsText: string): { subtitle: str
         }
         currentSubtitle = line.slice(2, -2)
       } else {
-        currentItems.push(line)
+        currentItems.push(line.replace(/^\s*-\s*/, "").trim())
       }
     }
 
