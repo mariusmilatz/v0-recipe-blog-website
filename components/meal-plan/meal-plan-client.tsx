@@ -139,6 +139,8 @@ function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): strin
     </div>`
 }
 
+const ALL_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
 export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: any; recipes?: any[] }) {
   const [activeDay, setActiveDay] = useState("monday")
   const [activeImage, setActiveImage] = useState(0)
@@ -239,8 +241,6 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
   const mealPrepTips = formatMealPrepTips(mealPlan.mealPrepTips)
 
   const hasMealImages = mealPlan.mealImages && mealPlan.mealImages.length > 0
-
-  const ALL_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
   function getOrderedDays(): [string, any][] {
     const startIndex = ALL_DAYS.indexOf(startDay)
@@ -518,24 +518,17 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
               <TabsContent value="meal-plan" className="mt-6">
                 <div className="flex items-center gap-3 mb-5">
                   <span className="text-sm text-muted-foreground">Week starts on:</span>
-                  <div className="flex gap-1">
-                    {[
-                      { key: "monday", label: "Monday" },
-                      { key: "friday", label: "Friday" },
-                    ].map(({ key, label }) => (
-                      <button
-                        key={key}
-                        onClick={() => setStartDay(key)}
-                        className={`px-3 py-1 rounded-md text-sm transition-colors ${
-                          startDay === key
-                            ? "bg-[#6a994e] text-white font-medium"
-                            : "border border-gray-200 text-muted-foreground hover:border-gray-300 hover:text-foreground"
-                        }`}
-                      >
-                        {label}
-                      </button>
+                  <select
+                    value={startDay}
+                    onChange={(e) => setStartDay(e.target.value)}
+                    className="text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#6a994e] focus:border-transparent cursor-pointer"
+                  >
+                    {ALL_DAYS.map((day) => (
+                      <option key={day} value={day}>
+                        {day.charAt(0).toUpperCase() + day.slice(1)}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 </div>
                 <div className="space-y-6">
                   {getOrderedDays().map(([day, meals]) => (
