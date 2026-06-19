@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 
 // Helper function to map category names for consistent filtering
-function getCategoryForTab(category) {
-  const categoryMap = {
+function getCategoryForTab(category: string) {
+  const categoryMap: Record<string, string> = {
     "Main Course": "mains",
     "Main Dish": "mains",
     Main: "mains",
@@ -32,34 +32,63 @@ function getCategoryForTab(category) {
 }
 
 // Helper function to check if a recipe belongs to a specific tab category
-function recipeMatchesTab(recipe, tabCategory) {
-  // If the recipe has courses array, check if any course matches the tab
+function recipeMatchesTab(recipe: any, tabCategory: string) {
   if (recipe.courses && Array.isArray(recipe.courses)) {
-    return recipe.courses.some((course) => getCategoryForTab(course) === tabCategory)
+    return recipe.courses.some((course: string) => getCategoryForTab(course) === tabCategory)
   }
-
-  // Fallback to the single category field
   return getCategoryForTab(recipe.category) === tabCategory
 }
 
-export default async function RecipesPage({ searchParams }) {
-  // Get search query from URL if present
+export default async function RecipesPage({ searchParams }: { searchParams?: Record<string, string> }) {
   const searchQuery = searchParams?.q || ""
-
-  // Get tab from URL if present, default to "all"
   const activeTab = searchParams?.tab || "all"
+  const activeCuisine = searchParams?.cuisine || ""
 
   // Fetch recipes from Notion
   const recipes = await fetchAllRecipes()
 
-  // Filter recipes based on search query if present
-  const filteredRecipes = searchQuery
+  // Collect unique non-empty cuisines for the filter row
+  const allCuisines = Array.from(
+    new Set(
+      recipes
+        .map((r: any) => r.cuisine)
+        .filter((c: string) => c && c.trim() !== "")
+    )
+  ).sort() as string[]
+
+  // Filter by search query
+  let filteredRecipes = searchQuery
     ? recipes.filter(
-        (recipe) =>
+        (recipe: any) =>
           recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          recipe.description.toLowerCase().includes(searchQuery.toLowerCase()),
+          recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : recipes
+
+  // Filter by cuisine
+  if (activeCuisine) {
+    filteredRecipes = filteredRecipes.filter(
+      (recipe: any) => recipe.cuisine?.toLowerCase() === activeCuisine.toLowerCase()
+    )
+  }
+
+  // Build search param helpers for cuisine links
+  function cuisineHref(cuisine: string) {
+    const params = new URLSearchParams()
+    if (searchQuery) params.set("q", searchQuery)
+    if (activeTab !== "all") params.set("tab", activeTab)
+    if (cuisine) params.set("cuisine", cuisine)
+    const qs = params.toString()
+    return qs ? `?${qs}` : "/recipes"
+  }
+
+  function clearCuisineHref() {
+    const params = new URLSearchParams()
+    if (searchQuery) params.set("q", searchQuery)
+    if (activeTab !== "all") params.set("tab", activeTab)
+    const qs = params.toString()
+    return qs ? `?${qs}` : "/recipes"
+  }
 
   return (
     <div className="container py-10">
@@ -70,6 +99,9 @@ export default async function RecipesPage({ searchParams }) {
         </div>
         <div className="flex items-center gap-2">
           <form>
+            {/* Preserve existing filters when searching */}
+            {activeCuisine && <input type="hidden" name="cuisine" value={activeCuisine} />}
+            {activeTab !== "all" && <input type="hidden" name="tab" value={activeTab} />}
             <Input name="q" placeholder="Search recipes..." className="w-[200px]" defaultValue={searchQuery} />
           </form>
           <DropdownMenu>
@@ -82,11 +114,35 @@ export default async function RecipesPage({ searchParams }) {
               <DropdownMenuItem>Newest First</DropdownMenuItem>
               <DropdownMenuItem>Oldest First</DropdownMenuItem>
               <DropdownMenuItem>Most Popular</DropdownMenuItem>
-              <DropdownMenuItem>Quick & Easy</DropdownMenuItem>
+              <DropdownMenuItem>Quick &amp; Easy</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Cuisine filter chips — only shown when cuisines exist in the database */}
+      {allCuisines.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4">
+          <Link href={clearCuisineHref()}>
+            <Badge
+              variant={activeCuisine === "" ? "default" : "outline"}
+              className="cursor-pointer text-sm px-3 py-1"
+            >
+              All cuisines
+            </Badge>
+          </Link>
+          {allCuisines.map((cuisine) => (
+            <Link key={cuisine} href={cuisineHref(cuisine)}>
+              <Badge
+                variant={activeCuisine.toLowerCase() === cuisine.toLowerCase() ? "default" : "outline"}
+                className="cursor-pointer text-sm px-3 py-1"
+              >
+                {cuisine}
+              </Badge>
+            </Link>
+          ))}
+        </div>
+      )}
 
       <Tabs defaultValue={activeTab} className="mt-6">
         <TabsList className="mb-4">
@@ -97,113 +153,46 @@ export default async function RecipesPage({ searchParams }) {
           <TabsTrigger value="snacks">Snacks</TabsTrigger>
           <TabsTrigger value="breakfast">Breakfast</TabsTrigger>
         </TabsList>
-        <TabsContent value="all" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                title={recipe.title}
-                description={recipe.description}
-                image={recipe.image}
-                time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
-                categories={recipe.courses || [recipe.category]}
-                slug={recipe.slug}
-              />
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="mains" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes
-              .filter((recipe) => recipeMatchesTab(recipe, "mains"))
-              .map((recipe) => (
-                <RecipeCard
-                  key={recipe.id}
-                  title={recipe.title}
-                  description={recipe.description}
-                  image={recipe.image}
-                  time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
-                  categories={recipe.courses || [recipe.category]}
-                  slug={recipe.slug}
-                />
-              ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="sides" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes
-              .filter((recipe) => recipeMatchesTab(recipe, "sides"))
-              .map((recipe) => (
-                <RecipeCard
-                  key={recipe.id}
-                  title={recipe.title}
-                  description={recipe.description}
-                  image={recipe.image}
-                  time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
-                  categories={recipe.courses || [recipe.category]}
-                  slug={recipe.slug}
-                />
-              ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="desserts" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes
-              .filter((recipe) => recipeMatchesTab(recipe, "desserts"))
-              .map((recipe) => (
-                <RecipeCard
-                  key={recipe.id}
-                  title={recipe.title}
-                  description={recipe.description}
-                  image={recipe.image}
-                  time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
-                  categories={recipe.courses || [recipe.category]}
-                  slug={recipe.slug}
-                />
-              ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="snacks" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes
-              .filter((recipe) => recipeMatchesTab(recipe, "snacks"))
-              .map((recipe) => (
-                <RecipeCard
-                  key={recipe.id}
-                  title={recipe.title}
-                  description={recipe.description}
-                  image={recipe.image}
-                  time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
-                  categories={recipe.courses || [recipe.category]}
-                  slug={recipe.slug}
-                />
-              ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="breakfast" className="mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecipes
-              .filter((recipe) => recipeMatchesTab(recipe, "breakfast"))
-              .map((recipe) => (
-                <RecipeCard
-                  key={recipe.id}
-                  title={recipe.title}
-                  description={recipe.description}
-                  image={recipe.image}
-                  time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
-                  categories={recipe.courses || [recipe.category]}
-                  slug={recipe.slug}
-                />
-              ))}
-          </div>
-        </TabsContent>
+
+        {(["all", "mains", "sides", "desserts", "snacks", "breakfast"] as const).map((tab) => (
+          <TabsContent key={tab} value={tab} className="mt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(tab === "all" ? filteredRecipes : filteredRecipes.filter((r: any) => recipeMatchesTab(r, tab))).map(
+                (recipe: any) => (
+                  <RecipeCard
+                    key={recipe.id}
+                    title={recipe.title}
+                    description={recipe.description}
+                    image={recipe.image}
+                    time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
+                    categories={recipe.courses || [recipe.category]}
+                    slug={recipe.slug}
+                  />
+                )
+              )}
+            </div>
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   )
 }
 
-function RecipeCard({ title, description, image, time, categories, slug }) {
-  // Ensure categories is always an array
+function RecipeCard({
+  title,
+  description,
+  image,
+  time,
+  categories,
+  slug,
+}: {
+  title: string
+  description: string
+  image: string
+  time: string
+  categories: string[]
+  slug: string
+}) {
   const categoryList = Array.isArray(categories) ? categories : [categories].filter(Boolean)
 
   return (
