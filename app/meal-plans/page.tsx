@@ -8,6 +8,8 @@ import { fetchAllMealPlansFromNotion } from "@/lib/notion-mealplan"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
+export const dynamic = "force-dynamic"
+
 export default async function MealPlansPage() {
   // Fetch meal plans from Notion
   const notionMealPlans = await fetchAllMealPlansFromNotion()
