@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { fetchBlogPostsFromNotion } from "@/lib/notion-blog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export const revalidate = 3600 // Revalidate every hour
+export const dynamic = "force-dynamic"
 
 export default async function BlogPage() {
   const blogPosts = await fetchBlogPostsFromNotion()
