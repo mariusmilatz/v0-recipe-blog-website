@@ -2,16 +2,11 @@ import { notFound } from "next/navigation"
 import { fetchBlogPostBySlugFromNotion } from "@/lib/notion-blog"
 import BlogPostClient from "@/components/blog/blog-post-client"
 
-export const revalidate = 3600 // Revalidate every hour
+export const dynamic = "force-dynamic"
 
-interface BlogPostPageProps {
-  params: {
-    slug: string
-  }
-}
-
-export default async function BlogPostPage({ params }: BlogPostPageProps) {
-  const post = await fetchBlogPostBySlugFromNotion(params.slug)
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const post = await fetchBlogPostBySlugFromNotion(slug)
 
   if (!post) {
     notFound()
