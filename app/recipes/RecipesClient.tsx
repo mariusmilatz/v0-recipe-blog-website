@@ -40,9 +40,15 @@ function recipeMatchesTab(recipe: any, tabCategory: string) {
 // Default suggestions shown when the search bar is focused but empty
 const DEFAULT_SUGGESTIONS = ["Breakfast", "Italian", "Main Dish", "Dessert"]
 
-export default function RecipesClient({ recipes }: { recipes: any[] }) {
+export default function RecipesClient({
+  recipes,
+  initialTab = "all",
+}: {
+  recipes: any[]
+  initialTab?: string
+}) {
   const [query, setQuery] = useState("")
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [showDropdown, setShowDropdown] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
