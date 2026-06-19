@@ -28,6 +28,8 @@ export default function MealPlanClient({ mealPlan }) {
   const [activeImage, setActiveImage] = useState(0)
   const defaultServings = mealPlan.serves || mealPlan.servings || 4
   const [servings, setServings] = useState(defaultServings)
+  const [showPrintDialog, setShowPrintDialog] = useState(false)
+  const [selectedPrintDay, setSelectedPrintDay] = useState<string>("all")
   const [adjustedShoppingList, setAdjustedShoppingList] = useState({
     produce: mealPlan.shoppingList?.produce || "",
     refrigerated: mealPlan.shoppingList?.refrigerated || "",
@@ -132,6 +134,17 @@ export default function MealPlanClient({ mealPlan }) {
   }
 
   const handlePrintMealPlan = () => {
+    setSelectedPrintDay("all")
+    setShowPrintDialog(true)
+  }
+
+  const handlePrintSelected = () => {
+    setShowPrintDialog(false)
+
+    const daysToprint = selectedPrintDay === "all"
+      ? Object.entries(mealPlan.meals)
+      : Object.entries(mealPlan.meals).filter(([day]) => day === selectedPrintDay)
+
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
 
@@ -139,50 +152,39 @@ export default function MealPlanClient({ mealPlan }) {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${mealPlan.title} - Meal Plan</title>
+        <title>${mealPlan.title} - ${selectedPrintDay === "all" ? "All Days" : selectedPrintDay.charAt(0).toUpperCase() + selectedPrintDay.slice(1)}</title>
         <meta charset="utf-8" />
         <style>
-          body { font-family: system-ui, sans-serif; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; }
-          h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-          h2 { font-size: 1.25rem; margin-top: 2rem; margin-bottom: 0.5rem; }
-          h3 { font-size: 1rem; margin-top: 1rem; margin-bottom: 0.5rem; }
-          .day { margin-bottom: 2rem; border: 1px solid #ddd; padding: 1rem; border-radius: 0.5rem; }
-          .meal { margin-bottom: 1rem; }
-          .meal-title { font-weight: bold; }
-          .meal-time { color: #666; font-size: 0.875rem; }
-          .footer { margin-top: 2rem; text-align: center; font-size: 0.75rem; color: #666; }
-          @media print { body { padding: 0; } .no-print { display: none; } }
+          body { font-family: system-ui, sans-serif; line-height: 1.6; padding: 2rem; max-width: 700px; margin: 0 auto; color: #222; }
+          h1 { font-size: 1.4rem; margin-bottom: 0.25rem; color: #3a3a3a; }
+          .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+          .day { margin-bottom: 2rem; page-break-inside: avoid; }
+          .day-title { font-size: 1.1rem; font-weight: 700; text-transform: capitalize; color: #6a994e; border-bottom: 2px solid #6a994e; padding-bottom: 0.25rem; margin-bottom: 1rem; }
+          .meal { display: flex; justify-content: space-between; align-items: baseline; padding: 0.4rem 0; border-bottom: 1px solid #eee; }
+          .meal-type { font-size: 0.75rem; text-transform: capitalize; color: #888; min-width: 80px; }
+          .meal-title { font-weight: 600; flex: 1; padding: 0 0.75rem; }
+          .meal-time { font-size: 0.8rem; color: #888; white-space: nowrap; }
+          .footer { margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; text-align: center; font-size: 0.75rem; color: #aaa; }
+          @media print { body { padding: 0.5rem; } }
         </style>
       </head>
       <body>
-        <div class="no-print" style="margin-bottom: 1rem;">
-          <button onclick="window.print()">Print</button>
-          <button onclick="window.close()">Close</button>
-        </div>
         <h1>${mealPlan.title}</h1>
-        <p>A 7-day meal plan for ${servings} ${servings === 1 ? "person" : "people"}</p>
-        ${Object.entries(mealPlan.meals)
-          .map(
-            ([day, meals]) => `
+        <div class="subtitle">${selectedPrintDay === "all" ? "Full week" : selectedPrintDay.charAt(0).toUpperCase() + selectedPrintDay.slice(1)} · for ${servings} ${servings === 1 ? "person" : "people"}</div>
+        ${daysToprint.map(([day, meals]) => `
           <div class="day">
-            <h2 style="text-transform: capitalize;">${day}</h2>
-            ${Object.entries(meals)
-              .map(
-                ([mealType, meal]) => `
+            <div class="day-title">${day}</div>
+            ${Object.entries(meals).map(([mealType, meal]) => `
               <div class="meal">
-                <h3 style="text-transform: capitalize;">${mealType}</h3>
-                <div class="meal-title">${meal.title}</div>
-                ${meal.time ? `<div class="meal-time">${meal.time}</div>` : ""}
+                <span class="meal-type">${mealType}</span>
+                <span class="meal-title">${meal.title || "—"}</span>
+                ${meal.time ? `<span class="meal-time">${meal.time}</span>` : ""}
               </div>
-            `,
-              )
-              .join("")}
+            `).join("")}
           </div>
-        `,
-          )
-          .join("")}
-        <div class="footer"><p>Vegan Side Project - ${new Date().toLocaleDateString()}</p></div>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
+        `).join("")}
+        <div class="footer">Vegan Side Project · ${new Date().toLocaleDateString()}</div>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); };</script>
       </body>
       </html>
     `
@@ -440,7 +442,7 @@ export default function MealPlanClient({ mealPlan }) {
               <CardDescription>Save this meal plan for offline use</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full" onClick={handlePrintMealPlan}>
+              <Button className="w-full bg-[#6a994e] hover:bg-[#588240]" onClick={handlePrintMealPlan}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print Meal Plan
               </Button>
@@ -515,6 +517,64 @@ export default function MealPlanClient({ mealPlan }) {
           </Card>
         </div>
       </div>
+      {/* Print Day Selector Dialog */}
+      {showPrintDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPrintDialog(false) }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-lg font-bold mb-1">Print Recipes</h2>
+            <p className="text-sm text-muted-foreground mb-5">Choose which day's recipes to print.</p>
+
+            <div className="space-y-2">
+              {/* All Days option */}
+              <button
+                onClick={() => setSelectedPrintDay("all")}
+                className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors font-medium ${
+                  selectedPrintDay === "all"
+                    ? "border-[#6a994e] bg-[#f0f7ec] text-[#6a994e]"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                All Days
+              </button>
+
+              {/* Individual days */}
+              {Object.keys(mealPlan.meals).map((day) => (
+                <button
+                  key={day}
+                  onClick={() => setSelectedPrintDay(day)}
+                  className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors capitalize ${
+                    selectedPrintDay === day
+                      ? "border-[#6a994e] bg-[#f0f7ec] text-[#6a994e] font-medium"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowPrintDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-[#6a994e] hover:bg-[#588240]"
+                onClick={handlePrintSelected}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
