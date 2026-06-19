@@ -23,7 +23,71 @@ function isRealMeal(title: string): boolean {
   return !!title && title.toLowerCase() !== "no meal" && title.trim() !== ""
 }
 
-export default function MealPlanClient({ mealPlan }) {
+// Match a meal title to a recipe from the recipes list
+function findRecipe(title: string, recipes: any[]): any | null {
+  if (!title || !recipes?.length) return null
+  const slug = titleToSlug(title)
+  return (
+    recipes.find((r: any) => titleToSlug(r.title || "") === slug) ||
+    recipes.find((r: any) =>
+      (r.title || "").toLowerCase().trim() === title.toLowerCase().trim()
+    ) ||
+    null
+  )
+}
+
+// Format ingredients / instructions whether they're arrays or strings
+function toLines(value: any): string[] {
+  if (!value) return []
+  if (Array.isArray(value)) return value.map(String).filter(Boolean)
+  return String(value)
+    .split(/\n|(?<=\d\.)/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): string {
+  const title = meal?.title || "—"
+  if (!recipe) {
+    return `
+      <div class="recipe">
+        <div class="meal-label">${mealType}</div>
+        <h2 class="recipe-title">${title}</h2>
+        <p class="not-found">Full recipe not found in the recipe library.</p>
+      </div>`
+  }
+
+  const ingredients = toLines(recipe.ingredients)
+  const instructions = toLines(recipe.instructions)
+  const tips = toLines(recipe.tips)
+
+  return `
+    <div class="recipe">
+      <div class="meal-label">${mealType}</div>
+      <h2 class="recipe-title">${recipe.title || title}</h2>
+      ${recipe.description ? `<p class="desc">${recipe.description}</p>` : ""}
+      <div class="meta">
+        ${recipe.servings ? `<span>Serves ${recipe.servings}</span>` : ""}
+        ${recipe.prepTime ? `<span>Prep ${recipe.prepTime}</span>` : ""}
+        ${recipe.cookTime ? `<span>Cook ${recipe.cookTime}</span>` : ""}
+        ${recipe.totalTime ? `<span>Total ${recipe.totalTime}</span>` : ""}
+      </div>
+      ${ingredients.length ? `
+        <h3>Ingredients</h3>
+        <ul>${ingredients.map((i) => `<li>${i}</li>`).join("")}</ul>
+      ` : ""}
+      ${instructions.length ? `
+        <h3>Instructions</h3>
+        <ol>${instructions.map((s) => `<li>${s}</li>`).join("")}</ol>
+      ` : ""}
+      ${tips.length ? `
+        <h3>Tips</h3>
+        <ul class="tips">${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
+      ` : ""}
+    </div>`
+}
+
+export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: any; recipes?: any[] }) {
   const [activeDay, setActiveDay] = useState("monday")
   const [activeImage, setActiveImage] = useState(0)
   const defaultServings = mealPlan.serves || mealPlan.servings || 4
@@ -141,50 +205,109 @@ export default function MealPlanClient({ mealPlan }) {
   const handlePrintSelected = () => {
     setShowPrintDialog(false)
 
-    const daysToprint = selectedPrintDay === "all"
-      ? Object.entries(mealPlan.meals)
-      : Object.entries(mealPlan.meals).filter(([day]) => day === selectedPrintDay)
+    const dayLabel =
+      selectedPrintDay === "all"
+        ? "All Days"
+        : selectedPrintDay.charAt(0).toUpperCase() + selectedPrintDay.slice(1)
+
+    const daysToprint: [string, any][] =
+      selectedPrintDay === "all"
+        ? Object.entries(mealPlan.meals)
+        : Object.entries(mealPlan.meals).filter(([day]) => day === selectedPrintDay)
 
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
+
+    // Build all recipe blocks
+    const recipeBlocks = daysToprint.map(([day, meals]) => {
+      const dayRecipes = Object.entries(meals)
+        .filter(([, meal]: [string, any]) => isRealMeal(meal?.title || ""))
+        .map(([mealType, meal]: [string, any]) => {
+          const recipe = findRecipe(meal.title, recipes)
+          return buildRecipeHtml(
+            mealType.charAt(0).toUpperCase() + mealType.slice(1),
+            meal,
+            recipe
+          )
+        })
+        .join("")
+
+      return `
+        <div class="day-section">
+          <div class="day-header">${day.charAt(0).toUpperCase() + day.slice(1)}</div>
+          ${dayRecipes}
+        </div>`
+    }).join("")
 
     const content = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${mealPlan.title} - ${selectedPrintDay === "all" ? "All Days" : selectedPrintDay.charAt(0).toUpperCase() + selectedPrintDay.slice(1)}</title>
+        <title>${mealPlan.title} — ${dayLabel}</title>
         <meta charset="utf-8" />
         <style>
-          body { font-family: system-ui, sans-serif; line-height: 1.6; padding: 2rem; max-width: 700px; margin: 0 auto; color: #222; }
-          h1 { font-size: 1.4rem; margin-bottom: 0.25rem; color: #3a3a3a; }
-          .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
-          .day { margin-bottom: 2rem; page-break-inside: avoid; }
-          .day-title { font-size: 1.1rem; font-weight: 700; text-transform: capitalize; color: #6a994e; border-bottom: 2px solid #6a994e; padding-bottom: 0.25rem; margin-bottom: 1rem; }
-          .meal { display: flex; justify-content: space-between; align-items: baseline; padding: 0.4rem 0; border-bottom: 1px solid #eee; }
-          .meal-type { font-size: 0.75rem; text-transform: capitalize; color: #888; min-width: 80px; }
-          .meal-title { font-weight: 600; flex: 1; padding: 0 0.75rem; }
-          .meal-time { font-size: 0.8rem; color: #888; white-space: nowrap; }
-          .footer { margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; text-align: center; font-size: 0.75rem; color: #aaa; }
-          @media print { body { padding: 0.5rem; } }
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Georgia, serif; line-height: 1.6; padding: 2.5rem; max-width: 720px; margin: 0 auto; color: #1a1a1a; font-size: 15px; }
+
+          .cover { margin-bottom: 2.5rem; border-bottom: 3px solid #6a994e; padding-bottom: 1.5rem; }
+          .cover h1 { font-size: 1.6rem; color: #3a3a3a; margin-bottom: 0.25rem; }
+          .cover .subtitle { color: #666; font-size: 0.9rem; }
+
+          .day-section { margin-bottom: 3rem; }
+          .day-header {
+            font-family: system-ui, sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #fff;
+            background: #6a994e;
+            padding: 0.4rem 0.85rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+          }
+
+          .recipe { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #ddd; page-break-inside: avoid; }
+          .recipe:last-child { border-bottom: none; }
+
+          .meal-label {
+            font-family: system-ui, sans-serif;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #6a994e;
+            margin-bottom: 0.3rem;
+          }
+          .recipe-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.5rem; color: #222; }
+          .desc { color: #555; font-style: italic; margin-bottom: 0.75rem; font-size: 0.9rem; }
+          .meta { display: flex; gap: 1.25rem; font-size: 0.8rem; color: #777; margin-bottom: 1rem; font-family: system-ui, sans-serif; }
+          .not-found { color: #999; font-style: italic; font-size: 0.85rem; }
+
+          h3 { font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6a994e; margin: 1.25rem 0 0.5rem; }
+          ul, ol { padding-left: 1.4rem; }
+          li { margin-bottom: 0.3rem; font-size: 0.92rem; }
+          ol li { margin-bottom: 0.5rem; }
+          .tips li { color: #555; font-style: italic; }
+
+          .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; text-align: center; font-size: 0.75rem; color: #bbb; font-family: system-ui, sans-serif; }
+
+          @media print {
+            body { padding: 0; font-size: 13px; }
+            .day-section { page-break-before: auto; }
+            .recipe { page-break-inside: avoid; }
+          }
         </style>
       </head>
       <body>
-        <h1>${mealPlan.title}</h1>
-        <div class="subtitle">${selectedPrintDay === "all" ? "Full week" : selectedPrintDay.charAt(0).toUpperCase() + selectedPrintDay.slice(1)} · for ${servings} ${servings === 1 ? "person" : "people"}</div>
-        ${daysToprint.map(([day, meals]) => `
-          <div class="day">
-            <div class="day-title">${day}</div>
-            ${Object.entries(meals).map(([mealType, meal]) => `
-              <div class="meal">
-                <span class="meal-type">${mealType}</span>
-                <span class="meal-title">${meal.title || "—"}</span>
-                ${meal.time ? `<span class="meal-time">${meal.time}</span>` : ""}
-              </div>
-            `).join("")}
-          </div>
-        `).join("")}
+        <div class="cover">
+          <h1>${mealPlan.title}</h1>
+          <div class="subtitle">${dayLabel} · Serves ${servings}</div>
+        </div>
+        ${recipeBlocks}
         <div class="footer">Vegan Side Project · ${new Date().toLocaleDateString()}</div>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); };</script>
+        <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };</script>
       </body>
       </html>
     `
