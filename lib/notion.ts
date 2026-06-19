@@ -44,6 +44,11 @@ function getPropertyValue(property: any) {
   }
 }
 
+// Build proxy image URLs from a page ID — avoids Notion's expiring signed S3 URLs
+function buildProxyImages(pageId: string, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => `/api/image-proxy?pageId=${pageId}&index=${i}`)
+}
+
 // Function to parse ingredients with subtitles
 function parseIngredientsWithSubtitles(ingredientsText: string): { subtitle: string | null; items: string[] }[] {
   if (!ingredientsText) return []
@@ -211,7 +216,7 @@ export async function fetchRecipesFromNotion() {
 
           const title = getPropertyValue(properties["Recipe Name"]) || "Untitled Recipe"
           const description = getPropertyValue(properties.Description) || ""
-          const images = getPropertyValue(properties["Title Image"]) || []
+          const rawImages = getPropertyValue(properties["Title Image"]) || []
           const prepTime = getPropertyValue(properties["Prep Time"]) || ""
           const cookTime = getPropertyValue(properties["Cook Time"]) || ""
           const serves = getPropertyValue(properties.Serves) || 4
@@ -232,13 +237,16 @@ export async function fetchRecipesFromNotion() {
           const formattedPrepTime = prepTime ? (prepTime.includes("min") ? prepTime : `${prepTime} min`) : ""
           const formattedCookTime = cookTime ? (cookTime.includes("min") ? cookTime : `${cookTime} min`) : ""
 
+          // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
+          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length)
+
           return {
             id: page.id,
             title,
             description,
             slug,
-            image: images.length > 0 ? images[0] : "/placeholder.svg?height=300&width=500",
-            images,
+            image: proxyImages.length > 0 ? proxyImages[0] : "/placeholder.svg?height=300&width=500",
+            images: proxyImages,
             prepTime: formattedPrepTime,
             cookTime: formattedCookTime,
             serves,
@@ -317,7 +325,7 @@ export async function fetchFeaturedRecipesFromNotion() {
 
           const title = getPropertyValue(properties["Recipe Name"]) || "Untitled Recipe"
           const description = getPropertyValue(properties.Description) || ""
-          const images = getPropertyValue(properties["Title Image"]) || []
+          const rawImages = getPropertyValue(properties["Title Image"]) || []
           const prepTime = getPropertyValue(properties["Prep Time"]) || ""
           const cookTime = getPropertyValue(properties["Cook Time"]) || ""
           const serves = getPropertyValue(properties.Serves) || 4
@@ -337,13 +345,16 @@ export async function fetchFeaturedRecipesFromNotion() {
           const formattedPrepTime = prepTime ? (prepTime.includes("min") ? prepTime : `${prepTime} min`) : ""
           const formattedCookTime = cookTime ? (cookTime.includes("min") ? cookTime : `${cookTime} min`) : ""
 
+          // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
+          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length)
+
           return {
             id: page.id,
             title,
             description,
             slug,
-            image: images.length > 0 ? images[0] : "/placeholder.svg?height=300&width=500",
-            images,
+            image: proxyImages.length > 0 ? proxyImages[0] : "/placeholder.svg?height=300&width=500",
+            images: proxyImages,
             prepTime: formattedPrepTime,
             cookTime: formattedCookTime,
             serves,
@@ -379,7 +390,7 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
 
     const title = getPropertyValue(properties["Recipe Name"]) || "Untitled Recipe"
     const description = getPropertyValue(properties.Description) || ""
-    const images = getPropertyValue(properties["Title Image"]) || []
+    const rawImages = getPropertyValue(properties["Title Image"]) || []
     const prepTime = getPropertyValue(properties["Prep Time"]) || ""
     const cookTime = getPropertyValue(properties["Cook Time"]) || ""
     const serves = getPropertyValue(properties.Serves) || 4
@@ -407,15 +418,18 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
     const instructions = parseNumberedInstructions(instructionsText)
 
     const tipsText = getPropertyValue(properties["Tips & Notes"]) || ""
-    const tips = tipsText.split("\n").filter((tip) => tip.trim() !== "")
+    const tips = tipsText.split("\n").filter((tip: string) => tip.trim() !== "")
+
+    // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
+    const proxyImages = buildProxyImages(pageId, (rawImages as string[]).length)
 
     return {
       id: pageId,
       title,
       description,
       slug,
-      image: images.length > 0 ? images[0] : "/placeholder.svg?height=500&width=1000",
-      images,
+      image: proxyImages.length > 0 ? proxyImages[0] : "/placeholder.svg?height=500&width=1000",
+      images: proxyImages,
       prepTime: formattedPrepTime,
       cookTime: formattedCookTime,
       serves,
