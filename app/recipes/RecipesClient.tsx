@@ -229,10 +229,12 @@ function RecipeCard({
   const categoryList = Array.isArray(categories) ? categories : [categories].filter(Boolean)
   const [loaded, setLoaded] = useState(false)
 
+  // Use a plain div instead of <Card> so we have full control over the top edge —
+  // no hidden padding or ShadCN defaults that create a gap above the image.
   return (
-    <Card className="overflow-hidden flex flex-col h-[450px]">
-      {/* Image flush to top — rounded corners come from the Card's overflow-hidden */}
-      <div className="h-[260px] w-full flex-shrink-0 overflow-hidden bg-muted">
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col h-[450px]">
+      {/* Image goes right to the top — overflow-hidden on the outer div clips to the rounded corners */}
+      <div className="h-[260px] w-full flex-shrink-0 bg-muted">
         <img
           src={image || "/placeholder.svg?height=300&width=500"}
           alt={title}
@@ -243,7 +245,7 @@ function RecipeCard({
         />
       </div>
 
-      {/* Text area — tighter spacing to maximise image size */}
+      {/* Text area */}
       <div className="flex flex-col flex-grow px-4 pt-3 pb-4">
         <p className="font-semibold text-base leading-snug">{title}</p>
         <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-snug">{description}</p>
@@ -251,18 +253,18 @@ function RecipeCard({
         {/* Push time + tags + button to the bottom */}
         <div className="flex-grow" />
 
-        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+        <div className="flex items-center gap-3 text-xs text-gray-800 mb-3">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {time || "N/A"}
           </span>
-          <span>{categoryList.join(", ")}</span>
+          <span className="text-left">{categoryList.join(", ")}</span>
         </div>
 
         <Button asChild variant="outline" className="w-full border border-gray-300">
           <Link href={`/recipes/${slug}`}>View Recipe</Link>
         </Button>
       </div>
-    </Card>
+    </div>
   )
 }
