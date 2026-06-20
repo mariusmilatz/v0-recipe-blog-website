@@ -44,6 +44,29 @@ function getPropertyValue(property: any) {
   }
 }
 
+// Extract rich_text while preserving bold annotations as **markers**.
+// Notion stores section headers (e.g. "Apple Filling:") as bold rich_text runs.
+// The plain-text extractor strips that, so the parser can't tell them apart from
+// regular ingredients. This function wraps each bold line with ** so the parser
+// detects it as a subtitle and renders it without a bullet point.
+function getRichTextWithBoldMarkers(property: any): string {
+  if (!property || property.type !== "rich_text") return ""
+  return (
+    property.rich_text
+      ?.map((t: any) => {
+        if (t.annotations?.bold) {
+          // A single run can span multiple lines — wrap each non-empty line individually
+          return t.plain_text
+            .split("\n")
+            .map((line: string) => (line.trim() ? `**${line.trim()}**` : ""))
+            .join("\n")
+        }
+        return t.plain_text
+      })
+      .join("") || ""
+  )
+}
+
 // Build proxy image URLs from a page ID — avoids Notion's expiring signed S3 URLs
 // The `v` param is derived from the page's last_edited_time so that swapping an image
 // in Notion changes the URL, busting the browser cache automatically.
@@ -415,7 +438,9 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
 
     const primaryCategory = courseArray.length > 0 ? courseArray[0] : "Main"
 
-    const ingredientsText = getPropertyValue(properties.Ingredients) || ""
+    // Use bold-preserving extractor so section headers (bolded in Notion) are
+    // correctly detected as subtitles and rendered without bullet points.
+    const ingredientsText = getRichTextWithBoldMarkers(properties.Ingredients) || ""
     const ingredientSections = parseIngredientsWithSubtitles(ingredientsText)
 
     const instructionsText = getPropertyValue(properties.Instructions) || ""
