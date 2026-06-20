@@ -1,43 +1,82 @@
 "use client"
 
-import { createContext, useContext, type ReactNode } from "react"
+// context/auth-context.tsx
+// Replace your existing auth-context.tsx with this file.
+// Provides the current Supabase user + profile to the entire app.
 
-// Define the AuthUser type
-type AuthUser = {
+import { createContext, useContext, useEffect, useState } from "react"
+import type { User, Session } from "@supabase/supabase-js"
+import { createClient } from "@/lib/supabase/client"
+
+type Profile = {
   id: string
   name: string
   email: string
-  picture?: string
+  avatar_url: string | null
 }
 
-// Define the context type
 type AuthContextType = {
-  user: AuthUser | null
-  isLoading: boolean
-  signIn: () => Promise<{ success: boolean; error?: string }>
-  signUp: () => Promise<{ success: boolean; error?: string }>
+  user: User | null
+  profile: Profile | null
+  session: Session | null
+  loading: boolean
   signOut: () => Promise<void>
-  cancelAuth: () => void
-  handleRedirectCallback: () => Promise<boolean>
-  updateUserProfile: (data: any) => void
 }
 
-// Create a stub context with empty values
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  isLoading: false,
-  signIn: async () => ({ success: false }),
-  signUp: async () => ({ success: false }),
+  profile: null,
+  session: null,
+  loading: true,
   signOut: async () => {},
-  cancelAuth: () => {},
-  handleRedirectCallback: async () => false,
-  updateUserProfile: () => {},
 })
 
-// Export the useAuth hook that returns the stub context
-export const useAuth = () => useContext(AuthContext)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
 
-// Export a stub AuthProvider component
-export function AuthProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>
+  async function loadProfile(userId: string) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single()
+    if (data) setProfile(data)
+  }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      if (session?.user) loadProfile(session.user.id)
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        loadProfile(session.user.id)
+      } else {
+        setProfile(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, profile, session, loading, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
+
+export const useAuth = () => useContext(AuthContext)
