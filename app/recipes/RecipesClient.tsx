@@ -199,7 +199,7 @@ export default function RecipesClient({
                       time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
                       categories={recipe.courses || [recipe.category]}
                       slug={recipe.slug}
-                      priority={index < 3}
+                      index={index}
                     />
                   ))}
                 </div>
@@ -219,7 +219,7 @@ function RecipeCard({
   time,
   categories,
   slug,
-  priority = false,
+  index = 0,
 }: {
   title: string
   description: string
@@ -227,19 +227,30 @@ function RecipeCard({
   time: string
   categories: string[]
   slug: string
-  priority?: boolean
+  index?: number
 }) {
   const categoryList = Array.isArray(categories) ? categories : [categories].filter(Boolean)
   const [loaded, setLoaded] = useState(false)
+
+  // Stagger image loading by row so images always load top-to-bottom.
+  // First 6 cards (rows 1-2) load immediately; each subsequent row waits
+  // an extra 80ms. This prevents a card from row 5 loading before row 2.
+  const [activeSrc, setActiveSrc] = useState(index < 6 ? image : "")
+  useEffect(() => {
+    if (index >= 6) {
+      const rowDelay = (Math.floor(index / 3) - 1) * 80
+      const t = setTimeout(() => setActiveSrc(image), rowDelay)
+      return () => clearTimeout(t)
+    }
+  }, [image, index])
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col h-[450px]">
       <div className="h-[260px] w-full flex-shrink-0 bg-muted">
         <img
-          src={image || "/placeholder.svg?height=300&width=500"}
+          src={activeSrc || "/placeholder.svg?height=300&width=500"}
           alt={title}
-          // High priority for first row (loads top-down); low for everything below
-          fetchPriority={priority ? "high" : "low"}
+          fetchPriority={index < 6 ? "high" : "auto"}
           onLoad={() => setLoaded(true)}
           className={`object-cover w-full h-full transition-all duration-500 hover:scale-105 ${
             loaded ? "opacity-100 blur-0" : "opacity-0 blur-sm"
