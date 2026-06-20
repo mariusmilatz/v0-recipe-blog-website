@@ -6,6 +6,7 @@ import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/context/auth-context"
+import PrefetchRecipes from "@/components/PrefetchRecipes"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -26,7 +27,7 @@ export const metadata = {
     title: "Vegan Side Project",
     description: "Delicious plant-based recipes that will satisfy both you and your vegan partner.",
   },
-    generator: 'v0.app'
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -48,6 +49,7 @@ export default function RootLayout({
               <Footer />
             </div>
             <Toaster />
+            <PrefetchRecipes />
           </AuthProvider>
         </ThemeProvider>
       </body>
