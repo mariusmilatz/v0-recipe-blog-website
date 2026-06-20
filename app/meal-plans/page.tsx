@@ -147,9 +147,7 @@ export default async function MealPlansPage() {
               </div>
               <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-snug">{plan.description}</p>
 
-              <div className="flex-grow" />
-
-              <div className="flex items-center justify-between text-xs text-black mb-3">
+              <div className="mt-4 flex items-center justify-between text-xs text-black mb-3">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
                   7 days
