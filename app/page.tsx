@@ -67,6 +67,7 @@ export default async function Home() {
                         <img
                           src={recipe.image || "/placeholder.svg"}
                           alt={recipe.title}
+                          fetchPriority="high"
                           className="object-cover w-full h-full transition-all hover:scale-105"
                         />
                       </div>
