@@ -227,14 +227,19 @@ function RecipeCard({
   slug: string
 }) {
   const categoryList = Array.isArray(categories) ? categories : [categories].filter(Boolean)
+  const [loaded, setLoaded] = useState(false)
 
   return (
     <Card className="overflow-hidden flex flex-col h-[450px]">
-      <div className="aspect-video w-full overflow-hidden">
+      <div className="aspect-video w-full overflow-hidden bg-muted">
         <img
           src={image || "/placeholder.svg?height=300&width=500"}
           alt={title}
-          className="object-cover w-full h-full transition-all hover:scale-105"
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          className={`object-cover w-full h-full transition-all duration-500 hover:scale-105 ${
+            loaded ? "opacity-100 blur-0" : "opacity-0 blur-sm"
+          }`}
         />
       </div>
       <CardHeader className="pb-2">
