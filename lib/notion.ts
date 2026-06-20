@@ -45,8 +45,11 @@ function getPropertyValue(property: any) {
 }
 
 // Build proxy image URLs from a page ID — avoids Notion's expiring signed S3 URLs
-function buildProxyImages(pageId: string, count: number): string[] {
-  return Array.from({ length: count }, (_, i) => `/api/image-proxy?pageId=${pageId}&index=${i}`)
+// The `v` param is derived from the page's last_edited_time so that swapping an image
+// in Notion changes the URL, busting the browser cache automatically.
+function buildProxyImages(pageId: string, count: number, updatedAt?: string): string[] {
+  const v = updatedAt ? `&v=${new Date(updatedAt).getTime()}` : ""
+  return Array.from({ length: count }, (_, i) => `/api/image-proxy?pageId=${pageId}&index=${i}${v}`)
 }
 
 // Function to parse ingredients with subtitles
@@ -238,7 +241,8 @@ export async function fetchRecipesFromNotion() {
           const formattedCookTime = cookTime ? (cookTime.includes("min") ? cookTime : `${cookTime} min`) : ""
 
           // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
-          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length)
+          // Pass last_edited_time as version so swapping an image in Notion busts the browser cache
+          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length, page.last_edited_time)
 
           return {
             id: page.id,
@@ -346,7 +350,7 @@ export async function fetchFeaturedRecipesFromNotion() {
           const formattedCookTime = cookTime ? (cookTime.includes("min") ? cookTime : `${cookTime} min`) : ""
 
           // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
-          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length)
+          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length, page.last_edited_time)
 
           return {
             id: page.id,
@@ -421,7 +425,8 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
     const tips = tipsText.split("\n").filter((tip: string) => tip.trim() !== "")
 
     // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
-    const proxyImages = buildProxyImages(pageId, (rawImages as string[]).length)
+    // Version param ensures swapping an image in Notion immediately shows on the site
+    const proxyImages = buildProxyImages(pageId, (rawImages as string[]).length, page.last_edited_time)
 
     return {
       id: pageId,
