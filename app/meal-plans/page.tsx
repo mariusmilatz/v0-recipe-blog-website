@@ -2,7 +2,6 @@ import Link from "next/link"
 import { Calendar, Clock, ChevronRight, Construction } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { fetchAllMealPlansFromNotion } from "@/lib/notion-mealplan"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -11,13 +10,9 @@ import { AlertCircle } from "lucide-react"
 export const dynamic = "force-dynamic"
 
 export default async function MealPlansPage() {
-  // Fetch meal plans from Notion
   const notionMealPlans = await fetchAllMealPlansFromNotion()
-
-  // Check if we have any meal plans from Notion
   const hasMealPlans = notionMealPlans && notionMealPlans.length > 0
 
-  // Mock meal plan data for fallback
   const mockMealPlans = [
     {
       id: "beginner-friendly",
@@ -57,7 +52,6 @@ export default async function MealPlansPage() {
     },
   ]
 
-  // Use Notion meal plans if available, otherwise use mock data
   const mealPlans = hasMealPlans
     ? notionMealPlans.map((plan) => ({
         id: plan.id,
@@ -96,7 +90,7 @@ export default async function MealPlansPage() {
         </Alert>
       )}
 
-      {/* How Our Meal Plans Work section - moved above the meal plan cards */}
+      {/* How Our Meal Plans Work */}
       <div className="max-w-3xl mx-auto mb-12">
         <div className="bg-[#f8f5f2] p-8 rounded-lg">
           <h2 className="text-2xl font-bold mb-4">How Our Meal Plans Work</h2>
@@ -118,9 +112,13 @@ export default async function MealPlansPage() {
         </div>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-2">
-        {mealPlans.map((plan) => (
-          <Card key={plan.id} className={`overflow-hidden ${!plan.available ? "relative" : ""}`}>
+      <div className="grid gap-6 md:grid-cols-2">
+        {mealPlans.map((plan, index) => (
+          <div
+            key={plan.id}
+            className={`rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col${!plan.available ? " relative" : ""}`}
+          >
+            {/* Coming Soon overlay */}
             {!plan.available && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
                 <Construction className="h-10 w-10 mb-4 text-muted-foreground" />
@@ -130,33 +128,38 @@ export default async function MealPlansPage() {
                 </p>
               </div>
             )}
-            <div className="aspect-video w-full overflow-hidden">
+
+            {/* Image flush to top */}
+            <div className="h-[240px] w-full flex-shrink-0 bg-muted">
               <img
                 src={plan.image || "/placeholder.svg"}
                 alt={plan.title}
+                fetchPriority={index < 2 ? "high" : "auto"}
                 className="object-cover w-full h-full transition-all hover:scale-105"
               />
             </div>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <CardTitle>{plan.title}</CardTitle>
-                {plan.featured && <Badge className="bg-[#6a994e]">Featured</Badge>}
+
+            {/* Text area */}
+            <div className="flex flex-col flex-grow px-4 pt-3 pb-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-base leading-snug">{plan.title}</p>
+                {plan.featured && <Badge className="bg-[#6a994e] shrink-0">Featured</Badge>}
               </div>
-              <CardDescription>{plan.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                <div className="flex items-center">
-                  <Calendar className="mr-1 h-4 w-4" />
-                  <span>7 days</span>
-                </div>
-                <div className="flex items-center">
-                  <Clock className="mr-1 h-4 w-4" />
-                  <span>21 meals</span>
-                </div>
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-snug">{plan.description}</p>
+
+              <div className="flex-grow" />
+
+              <div className="flex items-center justify-between text-xs text-black mb-3">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  7 days
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  21 meals
+                </span>
               </div>
-            </CardContent>
-            <CardFooter>
+
               {plan.available ? (
                 <Button asChild className="w-full">
                   <Link href={`/meal-plans/${plan.slug}`}>
@@ -168,8 +171,8 @@ export default async function MealPlansPage() {
                   Coming Soon
                 </Button>
               )}
-            </CardFooter>
-          </Card>
+            </div>
+          </div>
         ))}
       </div>
     </div>
