@@ -231,7 +231,8 @@ function RecipeCard({
 
   return (
     <Card className="overflow-hidden flex flex-col h-[450px]">
-      <div className="aspect-video w-full overflow-hidden bg-muted">
+      {/* Image flush to top — rounded corners come from the Card's overflow-hidden */}
+      <div className="h-[260px] w-full flex-shrink-0 overflow-hidden bg-muted">
         <img
           src={image || "/placeholder.svg?height=300&width=500"}
           alt={title}
@@ -241,30 +242,27 @@ function RecipeCard({
           }`}
         />
       </div>
-      <CardHeader className="pb-2">
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex-grow flex flex-col justify-end pb-4">
-        <div className="grid grid-cols-1 gap-2 text-sm text-gray-500">
-          <div className="flex items-center">
-            <Clock className="mr-1 h-3 w-3" />
-            <span>{time || "N/A"}</span>
-          </div>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {categoryList.map((cat, index) => (
-              <Badge key={index} variant="plain" className="text-xs">
-                {index > 0 ? `, ${cat}` : cat || "N/A"}
-              </Badge>
-            ))}
-          </div>
+
+      {/* Text area — tighter spacing to maximise image size */}
+      <div className="flex flex-col flex-grow px-4 pt-3 pb-4">
+        <p className="font-semibold text-base leading-snug">{title}</p>
+        <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-snug">{description}</p>
+
+        {/* Push time + tags + button to the bottom */}
+        <div className="flex-grow" />
+
+        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {time || "N/A"}
+          </span>
+          <span>{categoryList.join(", ")}</span>
         </div>
-      </CardContent>
-      <CardFooter className="pt-0">
+
         <Button asChild variant="outline" className="w-full border border-gray-300">
           <Link href={`/recipes/${slug}`}>View Recipe</Link>
         </Button>
-      </CardFooter>
+      </div>
     </Card>
   )
 }
