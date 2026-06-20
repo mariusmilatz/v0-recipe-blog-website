@@ -2,7 +2,6 @@ import Link from "next/link"
 import { Calendar, User } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchBlogPostsFromNotion } from "@/lib/notion-blog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -11,7 +10,6 @@ export const dynamic = "force-dynamic"
 export default async function BlogPage() {
   const blogPosts = await fetchBlogPostsFromNotion()
 
-  // Sample blog posts for testing - will only show if no posts from Notion
   const sampleBlogPosts =
     blogPosts.length > 0
       ? []
@@ -70,42 +68,51 @@ export default async function BlogPage() {
         </div>
       )}
 
-      {allPosts.length > 0 ? (
-        <div className="grid gap-8 md:grid-cols-2">
-          {allPosts.map((post) => (
-            <Card key={post.id} className="flex flex-col">
-              <div className="aspect-video w-full overflow-hidden">
+      {allPosts.length > 0 && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {allPosts.map((post, index) => (
+            <div
+              key={post.id}
+              className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col"
+            >
+              {/* Image flush to top */}
+              <div className="h-[240px] w-full flex-shrink-0 bg-muted">
                 <img
                   src={post.titleImage || "/placeholder.svg?height=300&width=600"}
                   alt={post.title}
+                  fetchPriority={index < 2 ? "high" : "auto"}
                   className="object-cover w-full h-full transition-all hover:scale-105"
                 />
               </div>
-              <CardHeader>
-                <CardTitle>{post.title}</CardTitle>
-                <CardDescription>{post.shortDescription}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1">
-                <div className="flex items-center mt-4 text-sm text-muted-foreground">
-                  <div className="flex items-center mr-4">
-                    <Calendar className="mr-1 h-4 w-4" />
-                    <span>{post.publishDate || "No date"}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <User className="mr-1 h-4 w-4" />
-                    <span>{post.author}</span>
-                  </div>
+
+              {/* Text area */}
+              <div className="flex flex-col flex-grow px-4 pt-3 pb-4">
+                <p className="font-semibold text-base leading-snug">{post.title}</p>
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-snug">
+                  {post.shortDescription}
+                </p>
+
+                <div className="flex-grow" />
+
+                <div className="flex items-center justify-between text-xs text-black mb-3">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {post.publishDate || "No date"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    {post.author}
+                  </span>
                 </div>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="outline" className="w-full">
+
+                <Button asChild variant="outline" className="w-full border border-gray-300">
                   <Link href={`/blog/${post.slug}`}>Read More</Link>
                 </Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
