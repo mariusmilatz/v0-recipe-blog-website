@@ -92,9 +92,7 @@ export default async function BlogPage() {
                   {post.shortDescription}
                 </p>
 
-                <div className="flex-grow" />
-
-                <div className="flex items-center justify-between text-xs text-black mb-3">
+                <div className="mt-4 flex items-center justify-between text-xs text-black mb-3">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     {post.publishDate || "No date"}
