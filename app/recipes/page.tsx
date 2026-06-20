@@ -2,7 +2,9 @@
 import { fetchAllRecipes } from "../actions/recipe-actions"
 import RecipesClient from "./RecipesClient"
 
-export const dynamic = "force-dynamic"
+// Rebuild the page at most once per minute in the background.
+// Visitors always get an instant response from Vercel's edge cache.
+export const revalidate = 60
 
 export default async function RecipesPage({
   searchParams,
