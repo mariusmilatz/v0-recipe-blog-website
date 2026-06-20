@@ -161,8 +161,8 @@ export default async function Home() {
               </div>
               <div className="flex justify-center">
                 <img
-                  src="/friends-sharing-meal.jpeg"
-                  alt="Friends sharing a vegan meal together"
+                  src="/hero-food.jpg"
+                  alt="Overhead view of vegan dishes on a marble table"
                   className="rounded-lg object-cover aspect-video overflow-hidden w-full max-w-[600px] h-auto"
                 />
               </div>
