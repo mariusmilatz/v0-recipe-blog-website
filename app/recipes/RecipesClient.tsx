@@ -235,7 +235,6 @@ function RecipeCard({
         <img
           src={image || "/placeholder.svg?height=300&width=500"}
           alt={title}
-          loading="lazy"
           onLoad={() => setLoaded(true)}
           className={`object-cover w-full h-full transition-all duration-500 hover:scale-105 ${
             loaded ? "opacity-100 blur-0" : "opacity-0 blur-sm"
