@@ -190,7 +190,7 @@ export default function RecipesClient({
                 <p className="text-muted-foreground text-sm mt-4">No recipes found.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {visible.map((recipe: any) => (
+                  {visible.map((recipe: any, index: number) => (
                     <RecipeCard
                       key={recipe.id}
                       title={recipe.title}
@@ -199,6 +199,7 @@ export default function RecipesClient({
                       time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
                       categories={recipe.courses || [recipe.category]}
                       slug={recipe.slug}
+                      priority={index < 3}
                     />
                   ))}
                 </div>
@@ -218,6 +219,7 @@ function RecipeCard({
   time,
   categories,
   slug,
+  priority = false,
 }: {
   title: string
   description: string
@@ -225,19 +227,19 @@ function RecipeCard({
   time: string
   categories: string[]
   slug: string
+  priority?: boolean
 }) {
   const categoryList = Array.isArray(categories) ? categories : [categories].filter(Boolean)
   const [loaded, setLoaded] = useState(false)
 
-  // Use a plain div instead of <Card> so we have full control over the top edge —
-  // no hidden padding or ShadCN defaults that create a gap above the image.
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col h-[450px]">
-      {/* Image goes right to the top — overflow-hidden on the outer div clips to the rounded corners */}
       <div className="h-[260px] w-full flex-shrink-0 bg-muted">
         <img
           src={image || "/placeholder.svg?height=300&width=500"}
           alt={title}
+          // High priority for first row (loads top-down); low for everything below
+          fetchPriority={priority ? "high" : "low"}
           onLoad={() => setLoaded(true)}
           className={`object-cover w-full h-full transition-all duration-500 hover:scale-105 ${
             loaded ? "opacity-100 blur-0" : "opacity-0 blur-sm"
