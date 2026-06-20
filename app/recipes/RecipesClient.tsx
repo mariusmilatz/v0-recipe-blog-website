@@ -253,12 +253,12 @@ function RecipeCard({
         {/* Push time + tags + button to the bottom */}
         <div className="flex-grow" />
 
-        <div className="flex items-center gap-3 text-xs text-gray-800 mb-3">
+        <div className="flex items-center justify-between text-xs text-black mb-3">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {time || "N/A"}
           </span>
-          <span className="text-left">{categoryList.join(", ")}</span>
+          <span className="text-right">{categoryList.join(", ")}</span>
         </div>
 
         <Button asChild variant="outline" className="w-full border border-gray-300">
