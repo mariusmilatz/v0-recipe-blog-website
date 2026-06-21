@@ -13,10 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
-  Star,
   AlertCircle,
   LinkIcon,
-  Send,
 } from "lucide-react"
 import { fetchRecipeBySlug, fetchAllRecipes } from "@/app/actions/recipe-actions"
 import { useAuth } from "@/context/auth-context"
@@ -27,15 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ServingsAdjuster } from "@/components/recipe/servings-adjuster"
 import { PrintRecipe } from "@/components/recipe/print-recipe"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { LikeButton } from "@/components/recipe/like-button"
-import { addReview, getRecipeReviews, setupSyncListeners, type RecipeReview } from "@/lib/recipe-storage"
 import { Badge } from "@/components/ui/badge"
 import SaveRecipeButton from "@/components/SaveRecipeButton"
-import CommentSection from "@/components/CommentSection"
+import RecipeReviews from "@/components/RecipeReviews"
 
 export default function RecipePage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
@@ -46,13 +40,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
   const [error, setError] = useState<string | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [recommendedRecipes, setRecommendedRecipes] = useState<any[]>([])
-  const [reviews, setReviews] = useState<RecipeReview[]>([])
-  const [averageRating, setAverageRating] = useState(0)
   const [totalTime, setTotalTime] = useState("")
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
-  const [reviewName, setReviewName] = useState("")
-  const [reviewRating, setReviewRating] = useState(5)
-  const [reviewComment, setReviewComment] = useState("")
 
   const [adjustedServings, setAdjustedServings] = useState<number | null>(null)
   const [adjustedIngredients, setAdjustedIngredients] = useState<string[][]>([])
@@ -97,53 +85,6 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
     } else {
       navigator.clipboard.writeText(window.location.href)
       toast({ title: "Link copied!", description: "Recipe link copied to clipboard." })
-    }
-  }
-
-  useEffect(() => {
-    if (!recipe) return
-    const loadedReviews = getRecipeReviews(resolvedParams.slug)
-    setReviews(loadedReviews)
-    if (loadedReviews.length > 0) {
-      const totalRating = loadedReviews.reduce((sum, review) => sum + review.rating, 0)
-      setAverageRating(totalRating / loadedReviews.length)
-    }
-    const cleanup = setupSyncListeners((syncedReviews) => {
-      const recipeReviews = syncedReviews.filter((r) => r.recipeId === resolvedParams.slug)
-      setReviews(recipeReviews)
-      if (recipeReviews.length > 0) {
-        const totalRating = recipeReviews.reduce((sum, review) => sum + review.rating, 0)
-        setAverageRating(totalRating / recipeReviews.length)
-      }
-    })
-    return cleanup
-  }, [recipe, resolvedParams.slug])
-
-  const handleReviewSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmittingReview(true)
-    try {
-      const newReview = addReview({
-        recipeId: resolvedParams.slug,
-        author: {
-          name: reviewName,
-          initials: reviewName.split(" ").map((n) => n[0]).join("").toUpperCase(),
-        },
-        rating: reviewRating,
-        comment: reviewComment,
-      })
-      setReviews([newReview, ...reviews])
-      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0) + reviewRating
-      setAverageRating(totalRating / (reviews.length + 1))
-      setReviewName("")
-      setReviewRating(5)
-      setReviewComment("")
-      toast({ title: "Review submitted!", description: "Thank you for sharing your experience with this recipe." })
-    } catch (error) {
-      console.error("Error submitting review:", error)
-      toast({ title: "Error submitting review", description: "There was a problem submitting your review. Please try again.", variant: "destructive" })
-    } finally {
-      setIsSubmittingReview(false)
     }
   }
 
@@ -272,10 +213,6 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                 </div>
               </div>
               {recipe.cuisine && <div className="flex items-center"><Globe className="mr-2 h-4 w-4 text-[#6a994e]" /><span>Cuisine: {recipe.cuisine}</span></div>}
-              <div className="flex items-center">
-                <Star className="mr-2 h-4 w-4 text-[#e9b949]" />
-                <span>{reviews.length > 0 ? `${averageRating.toFixed(1)} (${reviews.length} ${reviews.length === 1 ? "review" : "reviews"})` : "Be the first to review"}</span>
-              </div>
             </div>
 
             <div className="flex flex-wrap justify-between items-center mt-4 border-t border-b py-4">
@@ -356,74 +293,14 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                 </TabsContent>
               )}
               <TabsContent value="reviews" className="mt-6">
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Reviews {reviews.length > 0 ? `(${reviews.length})` : ""}</h3>
-                    {reviews.length > 0 ? (
-                      reviews.map((review) => (
-                        <div key={review.id} className="border rounded-lg p-4">
-                          <div className="flex items-start gap-4">
-                            <div className="rounded-full bg-muted h-10 w-10 flex items-center justify-center">
-                              <span className="text-sm font-medium">{review.author.initials}</span>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center">
-                                <span className="font-medium">{review.author.name}</span>
-                                <span className="text-muted-foreground text-sm ml-2">{review.date}</span>
-                              </div>
-                              <div className="flex">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star key={star} className={`h-4 w-4 ${star <= review.rating ? "text-[#e9b949]" : "text-muted"}`} fill={star <= review.rating ? "#e9b949" : "none"} />
-                                ))}
-                              </div>
-                              <p className="text-sm">{review.comment}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 border rounded-lg">
-                        <Star className="h-8 w-8 text-[#e9b949] mx-auto mb-2" />
-                        <p className="text-muted-foreground">No reviews yet. Be the first to share your experience!</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Leave a Review</h3>
-                    <form onSubmit={handleReviewSubmit} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Your Name</Label>
-                        <Input id="name" value={reviewName} onChange={(e) => setReviewName(e.target.value)} required />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="rating">Rating</Label>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button key={star} type="button" onClick={() => setReviewRating(star)} className="focus:outline-none">
-                              <Star className={`h-6 w-6 ${star <= reviewRating ? "text-[#e9b949]" : "text-muted"}`} fill={star <= reviewRating ? "#e9b949" : "none"} />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="comment">Your Review</Label>
-                        <Textarea id="comment" rows={4} value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} placeholder="Share your experience with this recipe..." required />
-                      </div>
-                      <Button type="submit" disabled={isSubmittingReview}>
-                        {isSubmittingReview ? <>Submitting... <Send className="ml-2 h-4 w-4 animate-pulse" /></> : <>Submit Review <Send className="ml-2 h-4 w-4" /></>}
-                      </Button>
-                    </form>
-                  </div>
-                </div>
+                <RecipeReviews
+                  notionRecipeId={recipe.id || resolvedParams.slug}
+                  recipeSlug={resolvedParams.slug}
+                  recipeTitle={recipe.title}
+                />
               </TabsContent>
             </Tabs>
 
-            {/* Supabase comments — requires account, stored in database */}
-            <CommentSection
-              notionRecipeId={recipe.id || resolvedParams.slug}
-              recipeSlug={resolvedParams.slug}
-              recipeTitle={recipe.title}
-            />
           </div>
         </div>
 
