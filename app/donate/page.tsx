@@ -12,17 +12,17 @@ export default function DonatePage() {
   const [selectedAmount, setSelectedAmount] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  // Stripe payment links
+  // Live Stripe payment links
   const stripeLinks = {
-    smallSupport: "https://buy.stripe.com/test_cNi5kxfZM0lag5ScfV7N600",
-    recipeSupporter: "https://buy.stripe.com/test_14AcMZ5l81pe6vigwb7N601",
-    sustainingMember: "https://buy.stripe.com/test_28E7sF9Bo0la4naeo37N602",
-    custom10: "https://buy.stripe.com/test_9B64gt6pc2tif1O4Nt7N603",
-    custom15: "https://buy.stripe.com/test_eVq00d9BoaZO9HucfV7N604",
-    custom20: "https://buy.stripe.com/test_6oUeV75l8d7Wg5S93J7N605",
-    custom30: "https://buy.stripe.com/test_8x2dR37tg8RGg5S93J7N606",
-    custom40: "https://buy.stripe.com/test_14AdR3eVIgk8dXKcfV7N607",
-    custom50: "https://buy.stripe.com/test_8x2dR328W4Bq1aY2Fl7N608",
+    smallSupport:    "https://buy.stripe.com/cNi3cvbnz5wm5skgDz24003",  // €2.50 one-time
+    recipeSupporter: "https://buy.stripe.com/28EbJ11MZ3oe4og1IF24005",  // €5.00 one-time
+    sustainingMember:"https://buy.stripe.com/eVq6oH4Zb1g69IAcnj24007",  // €2.50/month
+    custom10:        "https://buy.stripe.com/aFa9AT1MZ5wmg6Y3QN24004",  // €10
+    custom15:        "https://buy.stripe.com/bJe00jbnz1g66woevr24002",  // €15
+    custom20:        "https://buy.stripe.com/fZu3cv8bnaQG8Ewbjf24001",  // €20
+    custom30:        "https://buy.stripe.com/bJe9ATajvcYOcUMdrn24006",  // €30
+    custom40:        "https://buy.stripe.com/4gM00j63fe2S9IAgDz24000",  // €40
+    custom50:        "https://buy.stripe.com/3cI00jcrD8Iy2g872Z24008",  // €50
   }
 
   const handleShare = async () => {
@@ -32,22 +32,12 @@ export default function DonatePage() {
 
     if (navigator.share) {
       try {
-        await navigator.share({
-          title,
-          text,
-          url,
-        })
-        toast({
-          title: "Shared successfully!",
-          description: "Thank you for sharing Vegan Side Project.",
-        })
+        await navigator.share({ title, text, url })
+        toast({ title: "Shared successfully!", description: "Thank you for sharing Vegan Side Project." })
       } catch (error) {
-        console.error("Error sharing:", error)
-        // Fallback to copy if share was cancelled or failed
         copyToClipboard(url)
       }
     } else {
-      // Fallback for browsers that don't support the Web Share API
       copyToClipboard(url)
     }
   }
@@ -56,53 +46,22 @@ export default function DonatePage() {
     navigator.clipboard.writeText(text).then(
       () => {
         setCopied(true)
-        toast({
-          title: "Copied to clipboard!",
-          description: "The link has been copied to your clipboard.",
-        })
+        toast({ title: "Copied to clipboard!", description: "The link has been copied to your clipboard." })
         setTimeout(() => setCopied(false), 2000)
       },
-      (err) => {
-        console.error("Could not copy text: ", err)
-        toast({
-          title: "Failed to copy",
-          description: "Please try again or copy the URL manually.",
-          variant: "destructive",
-        })
+      () => {
+        toast({ title: "Failed to copy", description: "Please try again or copy the URL manually.", variant: "destructive" })
       },
     )
   }
 
-  const handleCustomDonation = () => {
-    if (!selectedAmount) return
-
-    let donationLink = ""
-    switch (selectedAmount) {
-      case "10":
-        donationLink = stripeLinks.custom10
-        break
-      case "15":
-        donationLink = stripeLinks.custom15
-        break
-      case "20":
-        donationLink = stripeLinks.custom20
-        break
-      case "30":
-        donationLink = stripeLinks.custom30
-        break
-      case "40":
-        donationLink = stripeLinks.custom40
-        break
-      case "50":
-        donationLink = stripeLinks.custom50
-        break
-      default:
-        // Default to €10 if somehow an invalid option is selected
-        donationLink = stripeLinks.custom10
-    }
-
-    window.location.href = donationLink
-  }
+  const customLink =
+    selectedAmount === "10" ? stripeLinks.custom10 :
+    selectedAmount === "15" ? stripeLinks.custom15 :
+    selectedAmount === "20" ? stripeLinks.custom20 :
+    selectedAmount === "30" ? stripeLinks.custom30 :
+    selectedAmount === "40" ? stripeLinks.custom40 :
+    selectedAmount === "50" ? stripeLinks.custom50 : "#"
 
   return (
     <div className="container py-10">
@@ -204,69 +163,19 @@ export default function DonatePage() {
           <h2 className="text-2xl font-bold mb-4">Custom Donation</h2>
           <p className="mb-6">Want to contribute a different amount? You can choose any amount that works for you.</p>
           <div className="flex flex-wrap gap-4 mb-6">
-            <Button
-              variant={selectedAmount === "10" ? "default" : "outline"}
-              onClick={() => setSelectedAmount("10")}
-              className={selectedAmount === "10" ? "bg-[#6a994e] hover:bg-[#5a8a3e]" : ""}
-            >
-              €10
-            </Button>
-            <Button
-              variant={selectedAmount === "15" ? "default" : "outline"}
-              onClick={() => setSelectedAmount("15")}
-              className={selectedAmount === "15" ? "bg-[#6a994e] hover:bg-[#5a8a3e]" : ""}
-            >
-              €15
-            </Button>
-            <Button
-              variant={selectedAmount === "20" ? "default" : "outline"}
-              onClick={() => setSelectedAmount("20")}
-              className={selectedAmount === "20" ? "bg-[#6a994e] hover:bg-[#5a8a3e]" : ""}
-            >
-              €20
-            </Button>
-            <Button
-              variant={selectedAmount === "30" ? "default" : "outline"}
-              onClick={() => setSelectedAmount("30")}
-              className={selectedAmount === "30" ? "bg-[#6a994e] hover:bg-[#5a8a3e]" : ""}
-            >
-              €30
-            </Button>
-            <Button
-              variant={selectedAmount === "40" ? "default" : "outline"}
-              onClick={() => setSelectedAmount("40")}
-              className={selectedAmount === "40" ? "bg-[#6a994e] hover:bg-[#5a8a3e]" : ""}
-            >
-              €40
-            </Button>
-            <Button
-              variant={selectedAmount === "50" ? "default" : "outline"}
-              onClick={() => setSelectedAmount("50")}
-              className={selectedAmount === "50" ? "bg-[#6a994e] hover:bg-[#5a8a3e]" : ""}
-            >
-              €50
-            </Button>
+            {[["10", "€10"], ["15", "€15"], ["20", "€20"], ["30", "€30"], ["40", "€40"], ["50", "€50"]].map(([val, label]) => (
+              <Button
+                key={val}
+                variant={selectedAmount === val ? "default" : "outline"}
+                onClick={() => setSelectedAmount(val)}
+                className={selectedAmount === val ? "bg-[#6a994e] hover:bg-[#5a8a3e]" : ""}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
           <Button asChild className="w-full" disabled={!selectedAmount}>
-            <a
-              href={
-                selectedAmount === "10"
-                  ? stripeLinks.custom10
-                  : selectedAmount === "15"
-                    ? stripeLinks.custom15
-                    : selectedAmount === "20"
-                      ? stripeLinks.custom20
-                      : selectedAmount === "30"
-                        ? stripeLinks.custom30
-                        : selectedAmount === "40"
-                          ? stripeLinks.custom40
-                          : selectedAmount === "50"
-                            ? stripeLinks.custom50
-                            : "#"
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href={customLink} target="_blank" rel="noopener noreferrer">
               Continue to Donation
             </a>
           </Button>
@@ -277,15 +186,7 @@ export default function DonatePage() {
           <p className="mb-6">Can't contribute financially? There are other valuable ways you can help:</p>
           <div className="flex flex-col md:flex-row gap-4 justify-center">
             <Button variant="outline" onClick={handleShare} className="md:w-auto">
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" /> Copied!
-                </>
-              ) : (
-                <>
-                  <Share2 className="h-4 w-4 mr-2" /> Share
-                </>
-              )}
+              {copied ? <><Check className="h-4 w-4 mr-2" /> Copied!</> : <><Share2 className="h-4 w-4 mr-2" /> Share</>}
             </Button>
             <Button variant="outline" asChild className="md:w-auto">
               <Link href="/submit-recipe">Submit a Recipe</Link>
