@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ServingsAdjuster } from "./servings-adjuster"
+import CommentSection from "@/components/CommentSection"
 
 // Convert a meal title to a recipe slug (same logic used in the recipe pages)
 function titleToSlug(title: string): string {
@@ -29,17 +30,14 @@ function findRecipe(mealTitle: string, recipes: any[]): any | null {
 
   const slug = titleToSlug(mealTitle)
 
-  // 1. Exact slug match
   let match = recipes.find((r: any) => titleToSlug(r.title || "") === slug)
   if (match) return match
 
-  // 2. Exact title match (case-insensitive)
   match = recipes.find(
     (r: any) => (r.title || "").toLowerCase().trim() === mealTitle.toLowerCase().trim()
   )
   if (match) return match
 
-  // 3. Strip common prefixes and retry
   const stripped = mealTitle
     .replace(/^(reheat|leftover|leftover of|use leftover|batch cook|make)\s*[:\-]\s*/i, "")
     .trim()
@@ -58,7 +56,6 @@ function findRecipe(mealTitle: string, recipes: any[]): any | null {
     if (match) return match
   }
 
-  // 4. Partial match on full title
   const mealLower = mealTitle.toLowerCase()
   match = recipes.find(
     (r: any) =>
@@ -68,8 +65,6 @@ function findRecipe(mealTitle: string, recipes: any[]): any | null {
   return match || null
 }
 
-// Build the print HTML for one recipe card
-// Uses the real data format: ingredientSections, instructions (typed items), tips (string[])
 function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): string {
   const title = meal?.title || "—"
 
@@ -82,21 +77,15 @@ function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): strin
       </div>`
   }
 
-  // ingredientSections: { subtitle: string | null; items: string[] }[]
   const ingredientsHtml = (() => {
     const sections: { subtitle: string | null; items: string[] }[] = recipe.ingredientSections || []
     if (!sections.length) return ""
-    return sections
-      .map(
-        (section) => `
-        ${section.subtitle ? `<p class="section-title">${section.subtitle}</p>` : ""}
-        <ul>${section.items.map((item) => `<li>${item}</li>`).join("")}</ul>
-      `
-      )
-      .join("")
+    return sections.map((section) => `
+      ${section.subtitle ? `<p class="section-title">${section.subtitle}</p>` : ""}
+      <ul>${section.items.map((item) => `<li>${item}</li>`).join("")}</ul>
+    `).join("")
   })()
 
-  // instructions: { type: "step" | "subtitle"; content: string }[]
   const instructionsHtml = (() => {
     const items: { type: "step" | "subtitle"; content: string }[] = recipe.instructions || []
     if (!items.length) return ""
@@ -116,7 +105,6 @@ function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): strin
     return html
   })()
 
-  // tips: string[]
   const tipsHtml = (() => {
     const tips: string[] = recipe.tips || []
     if (!tips.length) return ""
@@ -142,7 +130,6 @@ function buildRecipeHtml(mealType: string, meal: any, recipe: any | null): strin
 const ALL_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
 export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: any; recipes?: any[] }) {
-  const [activeDay, setActiveDay] = useState("monday")
   const [activeImage, setActiveImage] = useState(0)
   const defaultServings = mealPlan.serves || mealPlan.servings || 4
   const [servings, setServings] = useState(defaultServings)
@@ -162,52 +149,46 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
 
     const adjustQuantities = (list) => {
       if (!list) return ""
-
-      return list
-        .split(",")
-        .map((item) => {
-          const match = item.trim().match(/^(\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s*(.+)$/)
-          if (match) {
-            const [_, quantity, rest] = match
-            if (quantity.includes("/")) {
-              const [numerator, denominator] = quantity.split("/").map((n) => Number.parseFloat(n.trim()))
-              const decimal = numerator / denominator
-              const adjusted = decimal * ratio
-
-              let formattedQuantity
-              if (adjusted === Math.floor(adjusted)) {
-                formattedQuantity = adjusted.toString()
-              } else if (adjusted < 1) {
+      return list.split(",").map((item) => {
+        const match = item.trim().match(/^(\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s*(.+)$/)
+        if (match) {
+          const [_, quantity, rest] = match
+          if (quantity.includes("/")) {
+            const [numerator, denominator] = quantity.split("/").map((n) => Number.parseFloat(n.trim()))
+            const decimal = numerator / denominator
+            const adjusted = decimal * ratio
+            let formattedQuantity
+            if (adjusted === Math.floor(adjusted)) {
+              formattedQuantity = adjusted.toString()
+            } else if (adjusted < 1) {
+              const gcd = (a, b) => (b ? gcd(b, a % b) : a)
+              const precision = 100
+              const n = Math.round(adjusted * precision)
+              const d = precision
+              const div = gcd(n, d)
+              formattedQuantity = `${n / div}/${d / div}`
+            } else {
+              const whole = Math.floor(adjusted)
+              const fraction = adjusted - whole
+              if (fraction === 0) {
+                formattedQuantity = whole.toString()
+              } else {
                 const gcd = (a, b) => (b ? gcd(b, a % b) : a)
                 const precision = 100
-                const numerator = Math.round(adjusted * precision)
-                const denominator = precision
-                const divisor = gcd(numerator, denominator)
-                formattedQuantity = `${numerator / divisor}/${denominator / divisor}`
-              } else {
-                const whole = Math.floor(adjusted)
-                const fraction = adjusted - whole
-                if (fraction === 0) {
-                  formattedQuantity = whole.toString()
-                } else {
-                  const gcd = (a, b) => (b ? gcd(b, a % b) : a)
-                  const precision = 100
-                  const numerator = Math.round(fraction * precision)
-                  const denominator = precision
-                  const divisor = gcd(numerator, denominator)
-                  formattedQuantity = `${whole} ${numerator / divisor}/${denominator / divisor}`
-                }
+                const n = Math.round(fraction * precision)
+                const d = precision
+                const div = gcd(n, d)
+                formattedQuantity = `${whole} ${n / div}/${d / div}`
               }
-
-              return `${formattedQuantity} ${rest}`
-            } else {
-              const adjusted = Number.parseFloat(quantity) * ratio
-              return `${adjusted % 1 === 0 ? adjusted : adjusted.toFixed(1)} ${rest}`
             }
+            return `${formattedQuantity} ${rest}`
+          } else {
+            const adjusted = Number.parseFloat(quantity) * ratio
+            return `${adjusted % 1 === 0 ? adjusted : adjusted.toFixed(1)} ${rest}`
           }
-          return item
-        })
-        .join(", ")
+        }
+        return item
+      }).join(", ")
     }
 
     setAdjustedShoppingList({
@@ -220,18 +201,12 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
 
   const formatShoppingList = (listText) => {
     if (!listText) return []
-    return listText
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item)
+    return listText.split(",").map((item) => item.trim()).filter((item) => item)
   }
 
   const formatMealPrepTips = (tipsText) => {
     if (!tipsText) return []
-    return tipsText
-      .split(/•|\n/)
-      .map((tip) => tip.trim())
-      .filter((tip) => tip)
+    return tipsText.split(/•|\n/).map((tip) => tip.trim()).filter((tip) => tip)
   }
 
   const produceItems = formatShoppingList(adjustedShoppingList.produce)
@@ -267,114 +242,50 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
 
   const handlePrintSelected = () => {
     setShowPrintDialog(false)
-
-    const dayLabel =
-      selectedPrintDay === "all"
-        ? "All Days"
-        : selectedPrintDay.charAt(0).toUpperCase() + selectedPrintDay.slice(1)
-
-    const daysToprint: [string, any][] =
-      selectedPrintDay === "all"
-        ? getOrderedDays()
-        : getOrderedDays().filter(([day]) => day === selectedPrintDay)
+    const dayLabel = selectedPrintDay === "all" ? "All Days" : selectedPrintDay.charAt(0).toUpperCase() + selectedPrintDay.slice(1)
+    const daysToprint: [string, any][] = selectedPrintDay === "all" ? getOrderedDays() : getOrderedDays().filter(([day]) => day === selectedPrintDay)
 
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
 
-    // Build all recipe blocks
     const recipeBlocks = daysToprint.map(([day, meals]) => {
       const dayRecipes = Object.entries(meals)
         .filter(([, meal]: [string, any]) => isRealMeal(meal?.title || ""))
         .map(([mealType, meal]: [string, any]) => {
           const recipe = findRecipe(meal.title, recipes)
-          return buildRecipeHtml(
-            mealType.charAt(0).toUpperCase() + mealType.slice(1),
-            meal,
-            recipe
-          )
-        })
-        .join("")
-
-      return `
-        <div class="day-section">
-          <div class="day-header">${day.charAt(0).toUpperCase() + day.slice(1)}</div>
-          ${dayRecipes}
-        </div>`
+          return buildRecipeHtml(mealType.charAt(0).toUpperCase() + mealType.slice(1), meal, recipe)
+        }).join("")
+      return `<div class="day-section"><div class="day-header">${day.charAt(0).toUpperCase() + day.slice(1)}</div>${dayRecipes}</div>`
     }).join("")
 
-    const content = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${mealPlan.title} — ${dayLabel}</title>
-        <meta charset="utf-8" />
-        <style>
-          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: Georgia, serif; line-height: 1.6; padding: 2.5rem; max-width: 720px; margin: 0 auto; color: #1a1a1a; font-size: 15px; }
-
-          .cover { margin-bottom: 2.5rem; border-bottom: 3px solid #6a994e; padding-bottom: 1.5rem; }
-          .cover h1 { font-size: 1.6rem; color: #3a3a3a; margin-bottom: 0.25rem; }
-          .cover .subtitle { color: #666; font-size: 0.9rem; }
-
-          .day-section { margin-bottom: 3rem; }
-          .day-header {
-            font-family: system-ui, sans-serif;
-            font-size: 0.75rem;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #fff;
-            background: #6a994e;
-            padding: 0.4rem 0.85rem;
-            border-radius: 4px;
-            margin-bottom: 1.5rem;
-            display: inline-block;
-          }
-
-          .recipe { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #ddd; page-break-inside: avoid; }
-          .recipe:last-child { border-bottom: none; }
-
-          .meal-label {
-            font-family: system-ui, sans-serif;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #6a994e;
-            margin-bottom: 0.3rem;
-          }
-          .recipe-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.5rem; color: #222; }
-          .desc { color: #555; font-style: italic; margin-bottom: 0.75rem; font-size: 0.9rem; }
-          .meta { display: flex; gap: 1.25rem; font-size: 0.8rem; color: #777; margin-bottom: 1rem; font-family: system-ui, sans-serif; }
-          .not-found { color: #999; font-style: italic; font-size: 0.85rem; }
-          .section-title { font-weight: 700; font-size: 0.85rem; margin: 0.75rem 0 0.25rem; color: #444; }
-
-          h3 { font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6a994e; margin: 1.25rem 0 0.5rem; }
-          ul, ol { padding-left: 1.4rem; }
-          li { margin-bottom: 0.3rem; font-size: 0.92rem; }
-          ol li { margin-bottom: 0.5rem; }
-          .tips li { color: #555; font-style: italic; }
-
-          .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; text-align: center; font-size: 0.75rem; color: #bbb; font-family: system-ui, sans-serif; }
-
-          @media print {
-            body { padding: 0; font-size: 13px; }
-            .day-section { page-break-before: auto; }
-            .recipe { page-break-inside: avoid; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="cover">
-          <h1>${mealPlan.title}</h1>
-          <div class="subtitle">${dayLabel} · Serves ${servings}</div>
-        </div>
-        ${recipeBlocks}
-        <div class="footer">Vegan Side Project · ${new Date().toLocaleDateString()}</div>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };</script>
-      </body>
-      </html>
-    `
+    const content = `<!DOCTYPE html><html><head><title>${mealPlan.title} — ${dayLabel}</title><meta charset="utf-8" /><style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Georgia, serif; line-height: 1.6; padding: 2.5rem; max-width: 720px; margin: 0 auto; color: #1a1a1a; font-size: 15px; }
+      .cover { margin-bottom: 2.5rem; border-bottom: 3px solid #6a994e; padding-bottom: 1.5rem; }
+      .cover h1 { font-size: 1.6rem; color: #3a3a3a; margin-bottom: 0.25rem; }
+      .cover .subtitle { color: #666; font-size: 0.9rem; }
+      .day-section { margin-bottom: 3rem; }
+      .day-header { font-family: system-ui, sans-serif; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #fff; background: #6a994e; padding: 0.4rem 0.85rem; border-radius: 4px; margin-bottom: 1.5rem; display: inline-block; }
+      .recipe { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid #ddd; page-break-inside: avoid; }
+      .recipe:last-child { border-bottom: none; }
+      .meal-label { font-family: system-ui, sans-serif; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6a994e; margin-bottom: 0.3rem; }
+      .recipe-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.5rem; color: #222; }
+      .desc { color: #555; font-style: italic; margin-bottom: 0.75rem; font-size: 0.9rem; }
+      .meta { display: flex; gap: 1.25rem; font-size: 0.8rem; color: #777; margin-bottom: 1rem; font-family: system-ui, sans-serif; }
+      .not-found { color: #999; font-style: italic; font-size: 0.85rem; }
+      .section-title { font-weight: 700; font-size: 0.85rem; margin: 0.75rem 0 0.25rem; color: #444; }
+      h3 { font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6a994e; margin: 1.25rem 0 0.5rem; }
+      ul, ol { padding-left: 1.4rem; }
+      li { margin-bottom: 0.3rem; font-size: 0.92rem; }
+      .tips li { color: #555; font-style: italic; }
+      .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; text-align: center; font-size: 0.75rem; color: #bbb; font-family: system-ui, sans-serif; }
+      @media print { body { padding: 0; font-size: 13px; } }
+    </style></head><body>
+      <div class="cover"><h1>${mealPlan.title}</h1><div class="subtitle">${dayLabel} · Serves ${servings}</div></div>
+      ${recipeBlocks}
+      <div class="footer">Vegan Side Project · ${new Date().toLocaleDateString()}</div>
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };</script>
+    </body></html>`
 
     printWindow.document.open()
     printWindow.document.write(content)
@@ -384,41 +295,23 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
   const handlePrintGroceryList = () => {
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
-
-    const content = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${mealPlan.title} - Grocery List</title>
-        <meta charset="utf-8" />
-        <style>
-          body { font-family: system-ui, sans-serif; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; }
-          h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-          h2 { font-size: 1.25rem; margin-top: 2rem; margin-bottom: 0.5rem; }
-          ul { padding-left: 1.5rem; }
-          li { margin-bottom: 0.25rem; }
-          .section { margin-bottom: 1.5rem; }
-          .footer { margin-top: 2rem; text-align: center; font-size: 0.75rem; color: #666; }
-          @media print { body { padding: 0; } .no-print { display: none; } }
-        </style>
-      </head>
-      <body>
-        <div class="no-print" style="margin-bottom: 1rem;">
-          <button onclick="window.print()">Print</button>
-          <button onclick="window.close()">Close</button>
-        </div>
-        <h1>${mealPlan.title} - Grocery List</h1>
-        <p>Shopping list for ${servings} ${servings === 1 ? "person" : "people"}</p>
-        ${produceItems.length > 0 ? `<div class="section"><h2>Produce</h2><ul>${produceItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
-        ${pantryItems.length > 0 ? `<div class="section"><h2>Pantry</h2><ul>${pantryItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
-        ${refrigeratedItems.length > 0 ? `<div class="section"><h2>Refrigerated</h2><ul>${refrigeratedItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
-        ${spicesItems.length > 0 ? `<div class="section"><h2>Spices & Seasonings</h2><ul>${spicesItems.map((item) => `<li>${item}</li>`).join("")}</ul></div>` : ""}
-        <div class="footer"><p>Vegan Side Project - ${new Date().toLocaleDateString()}</p></div>
-        <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
-      </body>
-      </html>
-    `
-
+    const content = `<!DOCTYPE html><html><head><title>${mealPlan.title} - Grocery List</title><meta charset="utf-8" /><style>
+      body { font-family: system-ui, sans-serif; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; }
+      h1 { font-size: 1.5rem; margin-bottom: 1rem; } h2 { font-size: 1.25rem; margin-top: 2rem; margin-bottom: 0.5rem; }
+      ul { padding-left: 1.5rem; } li { margin-bottom: 0.25rem; }
+      .footer { margin-top: 2rem; text-align: center; font-size: 0.75rem; color: #666; }
+      @media print { .no-print { display: none; } }
+    </style></head><body>
+      <div class="no-print" style="margin-bottom:1rem"><button onclick="window.print()">Print</button> <button onclick="window.close()">Close</button></div>
+      <h1>${mealPlan.title} - Grocery List</h1>
+      <p>Shopping list for ${servings} ${servings === 1 ? "person" : "people"}</p>
+      ${produceItems.length > 0 ? `<div><h2>Produce</h2><ul>${produceItems.map((i) => `<li>${i}</li>`).join("")}</ul></div>` : ""}
+      ${pantryItems.length > 0 ? `<div><h2>Pantry</h2><ul>${pantryItems.map((i) => `<li>${i}</li>`).join("")}</ul></div>` : ""}
+      ${refrigeratedItems.length > 0 ? `<div><h2>Refrigerated</h2><ul>${refrigeratedItems.map((i) => `<li>${i}</li>`).join("")}</ul></div>` : ""}
+      ${spicesItems.length > 0 ? `<div><h2>Spices & Seasonings</h2><ul>${spicesItems.map((i) => `<li>${i}</li>`).join("")}</ul></div>` : ""}
+      <div class="footer"><p>Vegan Side Project - ${new Date().toLocaleDateString()}</p></div>
+      <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>
+    </body></html>`
     printWindow.document.open()
     printWindow.document.write(content)
     printWindow.document.close()
@@ -453,18 +346,10 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
                   />
                   {mealPlan.mealImages.length > 1 && (
                     <>
-                      <button
-                        onClick={goToPreviousImage}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                        aria-label="Previous image"
-                      >
+                      <button onClick={goToPreviousImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100" aria-label="Previous image">
                         <ChevronLeft className="h-6 w-6" />
                       </button>
-                      <button
-                        onClick={goToNextImage}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                        aria-label="Next image"
-                      >
+                      <button onClick={goToNextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100" aria-label="Next image">
                         <ChevronRight className="h-6 w-6" />
                       </button>
                       <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md">
@@ -476,13 +361,7 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
                 {mealPlan.mealImages.length > 1 && (
                   <div className="flex gap-2 overflow-x-auto pb-2">
                     {mealPlan.mealImages.map((image, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setActiveImage(index)}
-                        className={`relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden ${
-                          activeImage === index ? "ring-2 ring-[#6a994e]" : "opacity-70"
-                        }`}
-                      >
+                      <button key={index} onClick={() => setActiveImage(index)} className={`relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden ${activeImage === index ? "ring-2 ring-[#6a994e]" : "opacity-70"}`}>
                         <img src={image || "/placeholder.svg"} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
                       </button>
                     ))}
@@ -518,15 +397,9 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
               <TabsContent value="meal-plan" className="mt-6">
                 <div className="flex items-center gap-3 mb-5">
                   <span className="text-sm text-muted-foreground">Week starts on:</span>
-                  <select
-                    value={startDay}
-                    onChange={(e) => setStartDay(e.target.value)}
-                    className="text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#6a994e] focus:border-transparent cursor-pointer"
-                  >
+                  <select value={startDay} onChange={(e) => setStartDay(e.target.value)} className="text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#6a994e] focus:border-transparent cursor-pointer">
                     {ALL_DAYS.map((day) => (
-                      <option key={day} value={day}>
-                        {day.charAt(0).toUpperCase() + day.slice(1)}
-                      </option>
+                      <option key={day} value={day}>{day.charAt(0).toUpperCase() + day.slice(1)}</option>
                     ))}
                   </select>
                 </div>
@@ -543,10 +416,7 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
                               <h3 className="font-medium text-sm text-muted-foreground mb-2 capitalize">{mealType}</h3>
                               <div className="flex justify-between items-center">
                                 {isRealMeal(meal.title) ? (
-                                  <Link
-                                    href={`/recipes/${titleToSlug(meal.title)}`}
-                                    className="font-medium text-[#6a994e] hover:underline flex items-center gap-1 group"
-                                  >
+                                  <Link href={`/recipes/${titleToSlug(meal.title)}`} className="font-medium text-[#6a994e] hover:underline flex items-center gap-1 group">
                                     {meal.title}
                                     <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </Link>
@@ -575,33 +445,25 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
                       {produceItems.length > 0 && (
                         <div>
                           <h3 className="font-medium mb-2">Produce</h3>
-                          <ul className="list-disc pl-5 space-y-1">
-                            {produceItems.map((item, index) => <li key={index}>{item}</li>)}
-                          </ul>
+                          <ul className="list-disc pl-5 space-y-1">{produceItems.map((item, i) => <li key={i}>{item}</li>)}</ul>
                         </div>
                       )}
                       {pantryItems.length > 0 && (
                         <div>
                           <h3 className="font-medium mb-2">Pantry</h3>
-                          <ul className="list-disc pl-5 space-y-1">
-                            {pantryItems.map((item, index) => <li key={index}>{item}</li>)}
-                          </ul>
+                          <ul className="list-disc pl-5 space-y-1">{pantryItems.map((item, i) => <li key={i}>{item}</li>)}</ul>
                         </div>
                       )}
                       {refrigeratedItems.length > 0 && (
                         <div>
                           <h3 className="font-medium mb-2">Refrigerated</h3>
-                          <ul className="list-disc pl-5 space-y-1">
-                            {refrigeratedItems.map((item, index) => <li key={index}>{item}</li>)}
-                          </ul>
+                          <ul className="list-disc pl-5 space-y-1">{refrigeratedItems.map((item, i) => <li key={i}>{item}</li>)}</ul>
                         </div>
                       )}
                       {spicesItems.length > 0 && (
                         <div>
                           <h3 className="font-medium mb-2">Spices & Seasonings</h3>
-                          <ul className="list-disc pl-5 space-y-1">
-                            {spicesItems.map((item, index) => <li key={index}>{item}</li>)}
-                          </ul>
+                          <ul className="list-disc pl-5 space-y-1">{spicesItems.map((item, i) => <li key={i}>{item}</li>)}</ul>
                         </div>
                       )}
                     </div>
@@ -618,7 +480,7 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
                   <CardContent>
                     <ul className="list-disc pl-5 space-y-2">
                       {mealPrepTips.length > 0 ? (
-                        mealPrepTips.map((tip, index) => <li key={index}>{tip}</li>)
+                        mealPrepTips.map((tip, i) => <li key={i}>{tip}</li>)
                       ) : (
                         <>
                           <li>Prep vegetables for multiple meals at once to save time during the week.</li>
@@ -633,6 +495,13 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
                 </Card>
               </TabsContent>
             </Tabs>
+
+            {/* Comments section */}
+            <CommentSection
+              notionRecipeId={mealPlan.id}
+              recipeSlug={mealPlan.slug || mealPlan.id}
+              recipeTitle={mealPlan.title}
+            />
           </div>
         </div>
 
@@ -669,31 +538,11 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell>Calories</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.calories.amount || "2100"}</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.calories.percentage || "-"}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Protein</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.protein.amount || "75g"}</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.protein.percentage || "150%"}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Carbohydrates</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.carbohydrates.amount || "280g"}</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.carbohydrates.percentage || "93%"}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Fat</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.fat.amount || "70g"}</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.fat.percentage || "108%"}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Fiber</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.fiber.amount || "35g"}</TableCell>
-                    <TableCell className="text-right">{mealPlan.nutritionalInfo?.fiber.percentage || "140%"}</TableCell>
-                  </TableRow>
+                  <TableRow><TableCell>Calories</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.calories.amount || "2100"}</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.calories.percentage || "-"}</TableCell></TableRow>
+                  <TableRow><TableCell>Protein</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.protein.amount || "75g"}</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.protein.percentage || "150%"}</TableCell></TableRow>
+                  <TableRow><TableCell>Carbohydrates</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.carbohydrates.amount || "280g"}</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.carbohydrates.percentage || "93%"}</TableCell></TableRow>
+                  <TableRow><TableCell>Fat</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.fat.amount || "70g"}</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.fat.percentage || "108%"}</TableCell></TableRow>
+                  <TableRow><TableCell>Fiber</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.fiber.amount || "35g"}</TableCell><TableCell className="text-right">{mealPlan.nutritionalInfo?.fiber.percentage || "140%"}</TableCell></TableRow>
                 </TableBody>
               </Table>
               <p className="text-xs text-muted-foreground mt-4">
@@ -718,57 +567,26 @@ export default function MealPlanClient({ mealPlan, recipes = [] }: { mealPlan: a
           </Card>
         </div>
       </div>
+
       {/* Print Day Selector Dialog */}
       {showPrintDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowPrintDialog(false) }}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) setShowPrintDialog(false) }}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
             <h2 className="text-lg font-bold mb-1">Print Recipes</h2>
             <p className="text-sm text-muted-foreground mb-5">Choose which day's recipes to print.</p>
-
             <div className="space-y-2">
-              {/* All Days option */}
-              <button
-                onClick={() => setSelectedPrintDay("all")}
-                className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors font-medium ${
-                  selectedPrintDay === "all"
-                    ? "border-[#6a994e] bg-[#f0f7ec] text-[#6a994e]"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
+              <button onClick={() => setSelectedPrintDay("all")} className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors font-medium ${selectedPrintDay === "all" ? "border-[#6a994e] bg-[#f0f7ec] text-[#6a994e]" : "border-gray-200 hover:border-gray-300"}`}>
                 All Days
               </button>
-
-              {/* Individual days */}
               {Object.keys(mealPlan.meals).map((day) => (
-                <button
-                  key={day}
-                  onClick={() => setSelectedPrintDay(day)}
-                  className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors capitalize ${
-                    selectedPrintDay === day
-                      ? "border-[#6a994e] bg-[#f0f7ec] text-[#6a994e] font-medium"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
+                <button key={day} onClick={() => setSelectedPrintDay(day)} className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors capitalize ${selectedPrintDay === day ? "border-[#6a994e] bg-[#f0f7ec] text-[#6a994e] font-medium" : "border-gray-200 hover:border-gray-300"}`}>
                   {day}
                 </button>
               ))}
             </div>
-
             <div className="flex gap-3 mt-6">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowPrintDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-[#6a994e] hover:bg-[#588240]"
-                onClick={handlePrintSelected}
-              >
+              <Button variant="outline" className="flex-1" onClick={() => setShowPrintDialog(false)}>Cancel</Button>
+              <Button className="flex-1 bg-[#6a994e] hover:bg-[#588240]" onClick={handlePrintSelected}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
               </Button>
