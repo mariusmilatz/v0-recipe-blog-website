@@ -46,58 +46,18 @@ export default function TipsPage() {
     fetchTips()
   }, [])
 
-  // If no tips are found, show sample tips
   const useSampleTips = !loading && tips.length === 0 && !error
 
-  // Sample tips data for fallback
   const sampleTips = [
-    {
-      id: "1",
-      title: "Vegan Protein Sources",
-      description: "Beyond tofu: delicious protein options",
-      slug: "vegan-protein-sources",
-      tags: ["Nutrition", "Basics"],
-    },
-    {
-      id: "2",
-      title: "Dairy Substitutes",
-      description: "Creamy without the cream",
-      slug: "dairy-substitutes",
-      tags: ["Ingredients", "Basics"],
-    },
-    {
-      id: "3",
-      title: "Umami Boosters",
-      description: "Adding depth and savory flavors",
-      slug: "umami-boosters",
-      tags: ["Flavor", "Techniques"],
-    },
-    {
-      id: "4",
-      title: "Egg Replacements",
-      description: "For baking and beyond",
-      slug: "egg-replacements",
-      tags: ["Baking", "Ingredients"],
-    },
-    {
-      id: "5",
-      title: "Meal Prep Ideas",
-      description: "Save time and reduce stress",
-      slug: "meal-prep-ideas",
-      tags: ["Planning", "Time-saving"],
-    },
-    {
-      id: "6",
-      title: "Pantry Essentials",
-      description: "Stock up for success",
-      slug: "pantry-essentials",
-      tags: ["Shopping", "Basics"],
-    },
+    { id: "1", title: "Vegan Protein Sources", description: "Beyond tofu: delicious protein options", slug: "vegan-protein-sources", tags: ["Nutrition", "Basics"] },
+    { id: "2", title: "Dairy Substitutes", description: "Creamy without the cream", slug: "dairy-substitutes", tags: ["Ingredients", "Basics"] },
+    { id: "3", title: "Umami Boosters", description: "Adding depth and savory flavors", slug: "umami-boosters", tags: ["Flavor", "Techniques"] },
+    { id: "4", title: "Egg Replacements", description: "For baking and beyond", slug: "egg-replacements", tags: ["Baking", "Ingredients"] },
+    { id: "5", title: "Meal Prep Ideas", description: "Save time and reduce stress", slug: "meal-prep-ideas", tags: ["Planning", "Time-saving"] },
+    { id: "6", title: "Pantry Essentials", description: "Stock up for success", slug: "pantry-essentials", tags: ["Shopping", "Basics"] },
   ]
 
   const displayTips = useSampleTips ? sampleTips : tips
-
-  // Split tips into free and premium
   const freeTips = displayTips.slice(0, 3)
   const premiumTips = displayTips.slice(3)
 
@@ -137,12 +97,12 @@ export default function TipsPage() {
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         {/* Free tips visible to everyone */}
         {freeTips.map((tip) => (
-          <Card key={tip.id}>
+          <Card key={tip.id} className="flex flex-col">
             <CardHeader>
               <CardTitle>{tip.title}</CardTitle>
               <CardDescription>{tip.description}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1">
               {tip.image ? (
                 <div className="mb-4 aspect-video relative overflow-hidden rounded-md">
                   <Image src={tip.image || "/placeholder.svg"} alt={tip.title} fill className="object-cover" />
@@ -174,7 +134,7 @@ export default function TipsPage() {
 
         {/* Premium tips - blurred for non-signed in users */}
         {premiumTips.map((tip) => (
-          <Card key={tip.id} className={user ? "" : "relative"}>
+          <Card key={tip.id} className={`flex flex-col${user ? "" : " relative"}`}>
             {!user && (
               <div className="absolute inset-0 backdrop-blur-sm bg-background/50 z-10 flex flex-col items-center justify-center p-6 text-center">
                 <Lock className="h-8 w-8 mb-2 text-muted-foreground" />
@@ -187,7 +147,7 @@ export default function TipsPage() {
               <CardTitle>{tip.title}</CardTitle>
               <CardDescription>{tip.description}</CardDescription>
             </CardHeader>
-            <CardContent className={!user ? "blur-sm" : ""}>
+            <CardContent className={`flex-1${!user ? " blur-sm" : ""}`}>
               {tip.image ? (
                 <div className="mb-4 aspect-video relative overflow-hidden rounded-md">
                   <Image src={tip.image || "/placeholder.svg"} alt={tip.title} fill className="object-cover" />
