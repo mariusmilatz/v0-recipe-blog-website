@@ -1,12 +1,19 @@
 "use client"
 
-// context/auth-context.tsx
-// Replace your existing auth-context.tsx with this file.
-// Provides the current Supabase user + profile to the entire app.
-
 import { createContext, useContext, useEffect, useState } from "react"
 import type { User, Session } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
+
+const TOKEN_KEY = "_sb_access_token"
+
+function persistToken(session: Session | null) {
+  if (typeof window === "undefined") return
+  if (session?.access_token) {
+    localStorage.setItem(TOKEN_KEY, session.access_token)
+  } else {
+    localStorage.removeItem(TOKEN_KEY)
+  }
+}
 
 type Profile = {
   id: string
@@ -51,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
+      persistToken(session)
       if (session?.user) loadProfile(session.user.id)
       setLoading(false)
     })
@@ -58,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      persistToken(session)
       if (session?.user) {
         loadProfile(session.user.id)
       } else {
