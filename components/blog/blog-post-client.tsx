@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { SignInDialog } from "@/components/auth/sign-in-dialog"
 import { toast } from "@/hooks/use-toast"
+import CommentSection from "@/components/CommentSection"
 
 interface BlogPostClientProps {
   post: {
@@ -38,7 +39,6 @@ export default function BlogPostClient({ post }: BlogPostClientProps) {
   const { user } = useAuth()
   const [likeCount, setLikeCount] = useState(0)
   const [isLiked, setIsLiked] = useState(false)
-  const [commentCount] = useState(0) // Initialize comment count at 0
 
   const handleLike = () => {
     if (isLiked) {
@@ -57,14 +57,8 @@ export default function BlogPostClient({ post }: BlogPostClientProps) {
 
     try {
       if (navigator.share) {
-        // Use Web Share API if available
-        await navigator.share({
-          title,
-          text,
-          url,
-        })
+        await navigator.share({ title, text, url })
       } else {
-        // Fallback to clipboard
         await navigator.clipboard.writeText(url)
         toast({
           title: "Link copied to clipboard",
@@ -72,7 +66,6 @@ export default function BlogPostClient({ post }: BlogPostClientProps) {
         })
       }
     } catch (error) {
-      // Only show error if it's not an AbortError (user canceling)
       if (error instanceof Error && error.name !== "AbortError") {
         console.error("Error sharing:", error)
         toast({
@@ -84,11 +77,9 @@ export default function BlogPostClient({ post }: BlogPostClientProps) {
     }
   }
 
-  // Get author profile photo or use placeholder
   const authorPhotoUrl =
     post.authorProfilePhoto || `/placeholder-100x100.png?height=100&width=100&text=${post.author.charAt(0)}`
 
-  // Mock data for related posts
   const relatedPosts = [
     {
       title: "5 Things I Wish I Knew Before Cooking Vegan",
@@ -222,86 +213,16 @@ export default function BlogPostClient({ post }: BlogPostClientProps) {
                   <Heart className={`h-4 w-4 ${isLiked ? "fill-[#6a994e] text-[#6a994e]" : ""}`} />
                 </Button>
                 {likeCount > 0 && <span>{likeCount}</span>}
-                <MessageSquare className="h-4 w-4 ml-2" />
-                {commentCount > 0 && <span>{commentCount}</span>}
               </div>
             </div>
 
             <Separator />
 
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Comments{commentCount > 0 ? ` (${commentCount})` : ""}</h3>
-
-              {user ? (
-                <div className="space-y-4">
-                  <textarea
-                    className="w-full min-h-[100px] p-3 border rounded-md"
-                    placeholder="Share your thoughts or ask a question..."
-                  />
-                  <Button>Post Comment</Button>
-                </div>
-              ) : (
-                <div className="text-center p-4 border rounded-md">
-                  <p className="text-muted-foreground mb-4">Sign in to join the conversation</p>
-                  <SignInDialog />
-                </div>
-              )}
-
-              {commentCount > 0 ? (
-                <div className="space-y-4 mt-6">
-                  <div className="border rounded-md p-4">
-                    <div className="flex items-start space-x-4">
-                      <div className="rounded-full bg-muted h-10 w-10 flex items-center justify-center">
-                        <span className="text-sm font-medium">RL</span>
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">Rachel Lee</div>
-                          <div className="text-xs text-muted-foreground">3 days ago</div>
-                        </div>
-                        <p className="text-sm">
-                          Your story resonates with me so much! My husband went vegan last year and I was completely
-                          lost at first. Your mushroom risotto recipe was actually one of the first dishes I made that
-                          we both truly enjoyed. Thank you for sharing your journey!
-                        </p>
-                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                          <button className="hover:text-foreground">Reply</button>
-                          <button className="hover:text-foreground">Like</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border rounded-md p-4">
-                    <div className="flex items-start space-x-4">
-                      <div className="rounded-full bg-muted h-10 w-10 flex items-center justify-center">
-                        <span className="text-sm font-medium">TK</span>
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">Tom King</div>
-                          <div className="text-xs text-muted-foreground">1 week ago</div>
-                        </div>
-                        <p className="text-sm">
-                          As someone who still eats meat but is trying to incorporate more plant-based meals, I find
-                          your perspective incredibly helpful. It's refreshing to see someone acknowledge the challenges
-                          without judgment. Looking forward to trying more of your recipes!
-                        </p>
-                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                          <button className="hover:text-foreground">Reply</button>
-                          <button className="hover:text-foreground">Like</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 border rounded-lg">
-                  <MessageSquare className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No comments yet. Be the first to start the conversation!</p>
-                </div>
-              )}
-            </div>
+            <CommentSection
+              notionRecipeId={post.id}
+              recipeSlug={post.slug}
+              recipeTitle={post.title}
+            />
           </article>
         </div>
 
@@ -393,40 +314,21 @@ export default function BlogPostClient({ post }: BlogPostClientProps) {
   )
 }
 
-// Helper function to format text with basic markdown-like syntax
 function formatText(text: string): string {
-  // First, split the text into individual paragraphs by line breaks
   const paragraphs = text.split("\n").filter((p) => p.trim() !== "")
-
-  // Process each paragraph separately
   const processedParagraphs = paragraphs.map((paragraph) => {
-    // Check if the paragraph is a subtitle (enclosed in **)
     const subtitleMatch = paragraph.match(/^\s*\*\*(.*?)\*\*\s*$/)
-
     if (subtitleMatch) {
-      // It's a subtitle - make it an h3 with proper styling
       return `<h3 class="text-xl font-semibold mt-6 mb-3 text-[#6a994e]">${subtitleMatch[1]}</h3>`
     }
-
-    // For regular paragraphs, process inline formatting
     let processedParagraph = paragraph
-
-    // Handle bold text that's not a full paragraph subtitle
     processedParagraph = processedParagraph.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-
-    // Handle italic text
     processedParagraph = processedParagraph.replace(/\*(.*?)\*/g, "<em>$1</em>")
-
-    // Handle links
     processedParagraph = processedParagraph.replace(
       /\[([^\]]+)\]$$([^)]+)$$/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#6a994e] hover:underline">$1</a>',
     )
-
-    // Wrap in paragraph tag with margin for spacing
     return `<p class="mb-4">${processedParagraph}</p>`
   })
-
-  // Join all processed paragraphs
   return processedParagraphs.join("\n")
 }
