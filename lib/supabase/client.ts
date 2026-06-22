@@ -1,8 +1,3 @@
-// lib/supabase/client.ts
-// Singleton browser Supabase client — use this in all "use client" components.
-// Uses @supabase/supabase-js directly (localStorage-backed session) so the JWT
-// is reliably included in every request.
-
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 
 let _client: ReturnType<typeof createSupabaseClient> | null = null
