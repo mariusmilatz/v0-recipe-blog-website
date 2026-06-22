@@ -1,22 +1,33 @@
 "use client"
 
-// components/CommentSection.tsx
-// Drop this into any recipe's [slug] page.
-
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/context/auth-context"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Trash2 } from "lucide-react"
 
-type Props = {
-  notionRecipeId: string
-  recipeSlug: string
-  recipeTitle: string
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+function authHeaders(token: string) {
+  return {
+    apikey: SUPA_KEY,
+    Authorization: "Bearer " + token,
+    "Content-Type": "application/json",
+    Prefer: "return=minimal",
+  }
+}
+function anonHeaders() {
+  return { apikey: SUPA_KEY, "Content-Type": "application/json" }
+}
+function getToken(sessionToken: string | undefined): string | null {
+  if (sessionToken) return sessionToken
+  if (typeof window !== "undefined") return localStorage.getItem("_sb_access_token")
+  return null
 }
 
+type Props = { notionRecipeId: string; recipeSlug: string; recipeTitle: string }
 type Comment = {
   id: string
   user_id: string
@@ -26,51 +37,67 @@ type Comment = {
 }
 
 export default function CommentSection({ notionRecipeId, recipeSlug, recipeTitle }: Props) {
-  const { user } = useAuth()
-  const supabase = createClient()
+  const { user, session } = useAuth()
   const [comments, setComments] = useState<Comment[]>([])
   const [body, setBody] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
 
-  useEffect(() => {
-    loadComments()
-  }, [notionRecipeId])
+  useEffect(() => { loadComments() }, [notionRecipeId])
 
   async function loadComments() {
-    const { data } = await supabase
-      .from("comments")
-      .select("id, user_id, body, created_at, profiles(name)")
-      .eq("notion_recipe_id", notionRecipeId)
-      .order("created_at", { ascending: true })
-    setComments((data as Comment[]) || [])
+    const res = await fetch(
+      SUPA_URL + "/rest/v1/comments?select=id,user_id,body,created_at,profiles(name)&notion_recipe_id=eq." +
+        encodeURIComponent(notionRecipeId) + "&order=created_at.asc",
+      { headers: anonHeaders() }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      setComments(data || [])
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!user || !body.trim()) return
+    const token = getToken(session?.access_token)
+    if (!user || !token || !body.trim()) return
     setSubmitting(true)
-    await supabase.from("comments").insert({
-      user_id: user.id,
-      notion_recipe_id: notionRecipeId,
-      recipe_slug: recipeSlug,
-      recipe_title: recipeTitle,
-      body: body.trim(),
+    setError("")
+    const res = await fetch(SUPA_URL + "/rest/v1/comments", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({
+        user_id: user.id,
+        notion_recipe_id: notionRecipeId,
+        recipe_slug: recipeSlug,
+        recipe_title: recipeTitle,
+        body: body.trim(),
+      }),
     })
-    setBody("")
-    await loadComments()
+    if (res.ok) {
+      setBody("")
+      await loadComments()
+    } else {
+      const text = await res.text()
+      console.error("Comment post failed:", res.status, text)
+      setError("Failed to post (" + res.status + ") — try again")
+    }
     setSubmitting(false)
   }
 
   async function handleDelete(id: string) {
-    await supabase.from("comments").delete().eq("id", id)
+    const token = getToken(session?.access_token)
+    if (!token) return
+    await fetch(SUPA_URL + "/rest/v1/comments?id=eq." + id, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    })
     setComments(prev => prev.filter(c => c.id !== id))
   }
 
   return (
     <section className="mt-12 border-t pt-8">
       <h2 className="text-xl font-bold mb-6">Comments ({comments.length})</h2>
-
-      {/* Comment list */}
       {comments.length === 0 ? (
         <p className="text-sm text-muted-foreground mb-6">No comments yet — be the first!</p>
       ) : (
@@ -88,11 +115,7 @@ export default function CommentSection({ notionRecipeId, recipeSlug, recipeTitle
                   <p className="text-sm">{c.body}</p>
                 </div>
                 {user?.id === c.user_id && (
-                  <button
-                    onClick={() => handleDelete(c.id)}
-                    className="text-muted-foreground hover:text-red-500 transition-colors shrink-0 mt-0.5"
-                    title="Delete comment"
-                  >
+                  <button onClick={() => handleDelete(c.id)} className="text-muted-foreground hover:text-red-500 transition-colors shrink-0 mt-0.5" title="Delete comment">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
@@ -101,22 +124,11 @@ export default function CommentSection({ notionRecipeId, recipeSlug, recipeTitle
           ))}
         </div>
       )}
-
-      {/* Comment form */}
       {user ? (
         <form onSubmit={handleSubmit} className="space-y-3">
-          <Textarea
-            placeholder="Share your thoughts on this recipe…"
-            value={body}
-            onChange={e => setBody(e.target.value)}
-            rows={3}
-            required
-          />
-          <Button
-            type="submit"
-            className="bg-[#6a994e] hover:bg-[#5a8540]"
-            disabled={submitting || !body.trim()}
-          >
+          <Textarea placeholder="Share your thoughts…" value={body} onChange={e => setBody(e.target.value)} rows={3} required />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <Button type="submit" className="bg-[#6a994e] hover:bg-[#5a8540]" disabled={submitting || !body.trim()}>
             {submitting ? "Posting…" : "Post comment"}
           </Button>
         </form>
