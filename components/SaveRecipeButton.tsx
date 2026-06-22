@@ -1,8 +1,5 @@
 "use client"
 
-// components/SaveRecipeButton.tsx
-// Uses direct fetch with the JWT from AuthContext — bypasses @supabase/ssr entirely.
-
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Bookmark } from "lucide-react"
@@ -12,10 +9,10 @@ import { useAuth } from "@/context/auth-context"
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-function headers(token: string) {
+function makeHeaders(token: string) {
   return {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${token}`,
+    Authorization: "Bearer " + token,
     "Content-Type": "application/json",
     Prefer: "return=minimal",
   }
@@ -28,41 +25,53 @@ type Props = {
   recipeImage?: string
 }
 
-export default function SaveRecipeButton({ notionRecipeId, recipeTitle, recipeSlug, recipeImage }: Props) {
+export default function SaveRecipeButton({
+  notionRecipeId,
+  recipeTitle,
+  recipeSlug,
+  recipeImage,
+}: Props) {
   const { user, session } = useAuth()
   const router = useRouter()
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Check if this recipe is already saved
   useEffect(() => {
-    if (!user || !session?.access_token) return
-    fetch(
-      `${SUPABASE_URL}/rest/v1/saved_recipes?select=id&user_id=eq.${user.id}&notion_recipe_id=eq.${encodeURIComponent(notionRecipeId)}`,
-      { headers: headers(session.access_token) }
-    )
-      .then(r => r.json())
-      .then(data => setSaved(Array.isArray(data) && data.length > 0))
+    const token = session?.access_token
+    if (!user || !token) return
+    const url =
+      SUPABASE_URL +
+      "/rest/v1/saved_recipes?select=id&user_id=eq." +
+      user.id +
+      "&notion_recipe_id=eq." +
+      encodeURIComponent(notionRecipeId)
+    fetch(url, { headers: makeHeaders(token) })
+      .then(function (r) { return r.json() })
+      .then(function (data) { setSaved(Array.isArray(data) && data.length > 0) })
       .catch(console.error)
-  }, [user, session?.access_token, notionRecipeId])
+  }, [user, session, notionRecipeId])
 
   async function toggle() {
-    if (!user || !session?.access_token) {
+    const token = session?.access_token
+    if (!user || !token) {
       router.push("/login")
       return
     }
     setLoading(true)
-
     if (saved) {
       await fetch(
-        `${SUPABASE_URL}/rest/v1/saved_recipes?user_id=eq.${user.id}&notion_recipe_id=eq.${encodeURIComponent(notionRecipeId)}`,
-        { method: "DELETE", headers: headers(session.access_token) }
+        SUPABASE_URL +
+          "/rest/v1/saved_recipes?user_id=eq." +
+          user.id +
+          "&notion_recipe_id=eq." +
+          encodeURIComponent(notionRecipeId),
+        { method: "DELETE", headers: makeHeaders(token) }
       )
       setSaved(false)
     } else {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/saved_recipes`, {
+      const res = await fetch(SUPABASE_URL + "/rest/v1/saved_recipes", {
         method: "POST",
-        headers: headers(session.access_token),
+        headers: makeHeaders(token),
         body: JSON.stringify({
           user_id: user.id,
           notion_recipe_id: notionRecipeId,
@@ -71,50 +80,9 @@ export default function SaveRecipeButton({ notionRecipeId, recipeTitle, recipeSl
           recipe_image: recipeImage || null,
         }),
       })
-      if (res.ok || res.status === 201) setSaved(true)
-    }
-
-    setLoading(false)
-  }
-
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={toggle}
-      disabled={loading}
-      className={`flex items-center gap-2 ${saved ? "border-[#6a994e] text-[#6a994e]" : ""}`}
-      title={saved ? "Remove from saved" : "Save recipe"}
-    >
-      <Bookmark className={`h-4 w-4 ${saved ? "fill-[#6a994e]" : ""}`} />
-      {saved ? "Saved" : "Save recipe"}
-    </Button>
-  )
-}
-  }, [user, notionRecipeId])
-
-  async function toggle() {
-    if (!user) {
-      router.push("/login")
-      return
-    }
-    setLoading(true)
-    if (saved) {
-      await supabase
-        .from("saved_recipes")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("notion_recipe_id", notionRecipeId)
-      setSaved(false)
-    } else {
-      await supabase.from("saved_recipes").insert({
-        user_id: user.id,
-        notion_recipe_id: notionRecipeId,
-        recipe_title: recipeTitle,
-        recipe_slug: recipeSlug,
-        recipe_image: recipeImage || null,
-      })
-      setSaved(true)
+      if (res.ok || res.status === 201) {
+        setSaved(true)
+      }
     }
     setLoading(false)
   }
@@ -125,10 +93,13 @@ export default function SaveRecipeButton({ notionRecipeId, recipeTitle, recipeSl
       size="sm"
       onClick={toggle}
       disabled={loading}
-      className={`flex items-center gap-2 ${saved ? "border-[#6a994e] text-[#6a994e]" : ""}`}
+      className={
+        "flex items-center gap-2" +
+        (saved ? " border-[#6a994e] text-[#6a994e]" : "")
+      }
       title={saved ? "Remove from saved" : "Save recipe"}
     >
-      <Bookmark className={`h-4 w-4 ${saved ? "fill-[#6a994e]" : ""}`} />
+      <Bookmark className={"h-4 w-4" + (saved ? " fill-[#6a994e]" : "")} />
       {saved ? "Saved" : "Save recipe"}
     </Button>
   )
