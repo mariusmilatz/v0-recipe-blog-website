@@ -26,7 +26,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ServingsAdjuster } from "@/components/recipe/servings-adjuster"
 import { PrintRecipe } from "@/components/recipe/print-recipe"
 import { toast } from "@/hooks/use-toast"
-import { LikeButton } from "@/components/recipe/like-button"
 import { Badge } from "@/components/ui/badge"
 import SaveRecipeButton from "@/components/SaveRecipeButton"
 import RecipeReviews from "@/components/RecipeReviews"
@@ -220,9 +219,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                 <ServingsAdjuster initialServings={Number.parseInt(recipe.serves) || 2} onServingsChange={setAdjustedServings} />
               )}
               <div className="flex gap-2 flex-wrap">
-                <LikeButton recipeId={resolvedParams.slug} />
                 <PrintRecipe recipe={recipe} adjustedServings={adjustedServings} adjustedIngredients={adjustedIngredients} />
-                {/* Save recipe button — bookmarks to user's profile */}
                 <SaveRecipeButton
                   notionRecipeId={recipe.id || resolvedParams.slug}
                   recipeTitle={recipe.title}
