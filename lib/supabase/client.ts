@@ -1,7 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
-
 let _client: ReturnType<typeof createSupabaseClient> | null = null
-
 export function createClient() {
   if (!_client) {
     _client = createSupabaseClient(
