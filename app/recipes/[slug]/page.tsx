@@ -30,6 +30,7 @@ import { LikeButton } from "@/components/recipe/like-button"
 import { Badge } from "@/components/ui/badge"
 import { RecipeRatingSummary } from "@/components/recipe/RecipeRatingSummary"
 import RecipeReviews from "@/components/RecipeReviews"
+import SaveRecipeButton from "@/components/SaveRecipeButton"
 
 export default function RecipePage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
@@ -282,7 +283,12 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                 />
               )}
               <div className="flex gap-2">
-                <LikeButton recipeId={resolvedParams.slug} />
+                <SaveRecipeButton
+                  notionRecipeId={recipe.id || resolvedParams.slug}
+                  recipeTitle={recipe.title}
+                  recipeSlug={resolvedParams.slug}
+                  recipeImage={recipe.images?.[0] || recipe.image}
+                />
                 <PrintRecipe
                   recipe={recipe}
                   adjustedServings={adjustedServings}
