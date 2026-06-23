@@ -13,10 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
-  Star,
   AlertCircle,
   LinkIcon,
-  Send,
 } from "lucide-react"
 import { fetchRecipeBySlug, fetchAllRecipes } from "@/app/actions/recipe-actions"
 import { useAuth } from "@/context/auth-context"
@@ -27,14 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ServingsAdjuster } from "@/components/recipe/servings-adjuster"
 import { PrintRecipe } from "@/components/recipe/print-recipe"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { LikeButton } from "@/components/recipe/like-button"
-import { addReview, getRecipeReviews, setupSyncListeners, type RecipeReview } from "@/lib/recipe-storage"
 import { Badge } from "@/components/ui/badge"
 import { RecipeRatingSummary } from "@/components/recipe/RecipeRatingSummary"
+import RecipeReviews from "@/components/RecipeReviews"
 
 export default function RecipePage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
@@ -45,14 +40,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
   const [error, setError] = useState<string | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [recommendedRecipes, setRecommendedRecipes] = useState<any[]>([])
-  const [reviews, setReviews] = useState<RecipeReview[]>([])
-  const [averageRating, setAverageRating] = useState(0)
   const [totalTime, setTotalTime] = useState("")
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
-  const [reviewName, setReviewName] = useState("")
-  const [reviewRating, setReviewRating] = useState(5)
-  const [reviewComment, setReviewComment] = useState("")
-
   const [adjustedServings, setAdjustedServings] = useState<number | null>(null)
   const [adjustedIngredients, setAdjustedIngredients] = useState<string[][]>([])
 
@@ -69,21 +57,13 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
             const decimal = Number.parseInt(numerator) / Number.parseInt(denominator)
             const adjustedDecimal = decimal * (newServings / originalServings)
 
-            if (adjustedDecimal % 1 === 0) {
-              return Math.round(adjustedDecimal).toString()
-            } else if (Math.abs(adjustedDecimal - 0.25) < 0.01) {
-              return "1/4"
-            } else if (Math.abs(adjustedDecimal - 0.5) < 0.01) {
-              return "1/2"
-            } else if (Math.abs(adjustedDecimal - 0.75) < 0.01) {
-              return "3/4"
-            } else if (Math.abs(adjustedDecimal - 0.33) < 0.01) {
-              return "1/3"
-            } else if (Math.abs(adjustedDecimal - 0.67) < 0.01) {
-              return "2/3"
-            } else {
-              return adjustedDecimal.toFixed(2)
-            }
+            if (adjustedDecimal % 1 === 0) return Math.round(adjustedDecimal).toString()
+            else if (Math.abs(adjustedDecimal - 0.25) < 0.01) return "1/4"
+            else if (Math.abs(adjustedDecimal - 0.5) < 0.01) return "1/2"
+            else if (Math.abs(adjustedDecimal - 0.75) < 0.01) return "3/4"
+            else if (Math.abs(adjustedDecimal - 0.33) < 0.01) return "1/3"
+            else if (Math.abs(adjustedDecimal - 0.67) < 0.01) return "2/3"
+            else return adjustedDecimal.toFixed(2)
           }
 
           const number = Number.parseFloat(match)
@@ -107,78 +87,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
       }
     } else {
       navigator.clipboard.writeText(window.location.href)
-      toast({
-        title: "Link copied!",
-        description: "Recipe link copied to clipboard.",
-      })
-    }
-  }
-
-  useEffect(() => {
-    if (!recipe) return
-
-    const loadedReviews = getRecipeReviews(resolvedParams.slug)
-    setReviews(loadedReviews)
-
-    if (loadedReviews.length > 0) {
-      const totalRating = loadedReviews.reduce((sum, review) => sum + review.rating, 0)
-      setAverageRating(totalRating / loadedReviews.length)
-    }
-
-    const cleanup = setupSyncListeners((syncedReviews) => {
-      const recipeReviews = syncedReviews.filter((r) => r.recipeId === resolvedParams.slug)
-      setReviews(recipeReviews)
-
-      if (recipeReviews.length > 0) {
-        const totalRating = recipeReviews.reduce((sum, review) => sum + review.rating, 0)
-        setAverageRating(totalRating / recipeReviews.length)
-      }
-    })
-
-    return cleanup
-  }, [recipe, resolvedParams.slug])
-
-  const handleReviewSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmittingReview(true)
-
-    try {
-      const newReview = addReview({
-        recipeId: resolvedParams.slug,
-        author: {
-          name: reviewName,
-          initials: reviewName
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase(),
-        },
-        rating: reviewRating,
-        comment: reviewComment,
-      })
-
-      setReviews([newReview, ...reviews])
-
-      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0) + reviewRating
-      setAverageRating(totalRating / (reviews.length + 1))
-
-      setReviewName("")
-      setReviewRating(5)
-      setReviewComment("")
-
-      toast({
-        title: "Review submitted!",
-        description: "Thank you for sharing your experience with this recipe.",
-      })
-    } catch (error) {
-      console.error("Error submitting review:", error)
-      toast({
-        title: "Error submitting review",
-        description: "There was a problem submitting your review. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmittingReview(false)
+      toast({ title: "Link copied!", description: "Recipe link copied to clipboard." })
     }
   }
 
@@ -208,8 +117,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
           const allRecipes = await fetchAllRecipes()
           if (allRecipes && Array.isArray(allRecipes) && allRecipes.length > 0) {
             const otherRecipes = allRecipes.filter((r) => r.slug !== resolvedParams.slug)
-            const recommended = otherRecipes.sort(() => 0.5 - Math.random()).slice(0, 3)
-            setRecommendedRecipes(recommended)
+            setRecommendedRecipes(otherRecipes.sort(() => 0.5 - Math.random()).slice(0, 3))
           }
         } catch (recError) {
           console.error("Error loading recommended recipes:", recError)
@@ -289,7 +197,6 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                 alt={recipe.title}
                 className="object-cover w-full h-full"
               />
-
               {recipe.images && recipe.images.length > 1 && (
                 <>
                   <Button
@@ -308,7 +215,6 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                   >
                     <ChevronRight className="h-6 w-6" />
                   </Button>
-
                   <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
                     {recipe.images.map((_, index) => (
                       <button
@@ -322,6 +228,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
               )}
             </div>
 
+            {/* Metadata row */}
             <div className="flex flex-wrap gap-4 text-sm">
               {totalTime && (
                 <div className="flex items-center">
@@ -366,6 +273,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
               <RecipeRatingSummary notionRecipeId={recipe.id || resolvedParams.slug} />
             </div>
 
+            {/* Servings / actions row */}
             <div className="flex flex-wrap justify-between items-center mt-4 border-t border-b py-4">
               {recipe.serves && (
                 <ServingsAdjuster
@@ -389,12 +297,12 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                 {recipe.tips && recipe.tips.length > 0 && <TabsTrigger value="tips">Tips & Notes</TabsTrigger>}
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
               </TabsList>
+
               <TabsContent value="instructions" className="mt-6">
                 <div className="space-y-8">
                   {recipe.ingredientSections && recipe.ingredientSections.length > 0 && (
                     <div>
                       <h3 className="text-lg font-medium mb-4">Ingredients</h3>
-
                       {recipe.ingredientSections.map((section, sectionIndex) => (
                         <div key={sectionIndex} className="mb-4">
                           {section.subtitle && (
@@ -428,11 +336,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                             return (
                               <div key={index} className="flex">
                                 <span className="font-medium mr-3">
-                                  {index +
-                                    1 -
-                                    recipe.instructions.filter((item, i) => i < index && item.type === "subtitle")
-                                      .length}
-                                  .
+                                  {index + 1 - recipe.instructions.filter((item, i) => i < index && item.type === "subtitle").length}.
                                 </span>
                                 <p>{instruction.content}</p>
                               </div>
@@ -452,6 +356,7 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                   </div>
                 </div>
               </TabsContent>
+
               {recipe.tips && recipe.tips.length > 0 && (
                 <TabsContent value="tips" className="mt-6">
                   <div>
@@ -464,100 +369,13 @@ export default function RecipePage({ params }: { params: Promise<{ slug: string 
                   </div>
                 </TabsContent>
               )}
+
               <TabsContent value="reviews" className="mt-6">
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Reviews {reviews.length > 0 ? `(${reviews.length})` : ""}</h3>
-
-                    {reviews.length > 0 ? (
-                      <>
-                        {reviews.map((review) => (
-                          <div key={review.id} className="border rounded-lg p-4">
-                            <div className="flex items-start gap-4">
-                              <div className="rounded-full bg-muted h-10 w-10 flex items-center justify-center">
-                                <span className="text-sm font-medium">{review.author.initials}</span>
-                              </div>
-                              <div className="space-y-1">
-                                <div className="flex items-center">
-                                  <span className="font-medium">{review.author.name}</span>
-                                  <span className="text-muted-foreground text-sm ml-2">{review.date}</span>
-                                </div>
-                                <div className="flex">
-                                  {[1, 2, 3, 4, 5].map((star) => (
-                                    <Star
-                                      key={star}
-                                      className={`h-4 w-4 ${star <= review.rating ? "text-[#e9b949]" : "text-muted"}`}
-                                      fill={star <= review.rating ? "#e9b949" : "none"}
-                                    />
-                                  ))}
-                                </div>
-                                <p className="text-sm">{review.comment}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    ) : (
-                      <div className="text-center py-8 border rounded-lg">
-                        <Star className="h-8 w-8 text-[#e9b949] mx-auto mb-2" />
-                        <p className="text-muted-foreground">No reviews yet. Be the first to share your experience!</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Leave a Review</h3>
-                    <form onSubmit={handleReviewSubmit} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Your Name</Label>
-                        <Input id="name" value={reviewName} onChange={(e) => setReviewName(e.target.value)} required />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="rating">Rating</Label>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              type="button"
-                              onClick={() => setReviewRating(star)}
-                              className="focus:outline-none"
-                            >
-                              <Star
-                                className={`h-4 w-4 ${star <= reviewRating ? "text-[#e9b949]" : "text-muted"}`}
-                                fill={star <= reviewRating ? "#e9b949" : "none"}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="comment">Your Review</Label>
-                        <Textarea
-                          id="comment"
-                          rows={4}
-                          value={reviewComment}
-                          onChange={(e) => setReviewComment(e.target.value)}
-                          placeholder="Share your experience with this recipe..."
-                          required
-                        />
-                      </div>
-
-                      <Button type="submit" disabled={isSubmittingReview}>
-                        {isSubmittingReview ? (
-                          <>
-                            Submitting... <Send className="ml-2 h-4 w-4 animate-pulse" />
-                          </>
-                        ) : (
-                          <>
-                            Submit Review <Send className="ml-2 h-4 w-4" />
-                          </>
-                        )}
-                      </Button>
-                    </form>
-                  </div>
-                </div>
+                <RecipeReviews
+                  notionRecipeId={recipe.id || resolvedParams.slug}
+                  recipeSlug={resolvedParams.slug}
+                  recipeTitle={recipe.title}
+                />
               </TabsContent>
             </Tabs>
           </div>
