@@ -71,9 +71,9 @@ export function Navbar() {
           </Link>
 
           {/* Support Us — visible at sm+ (goes to menu below 640px) */}
-          <div className="hidden sm:flex">
-            <DonateButton size="sm" />
-          </div>
+          <Button asChild size="sm" variant="outline" className="hidden sm:flex">
+            <Link href="/donate">Support Us</Link>
+          </Button>
 
           {/* Profile / Auth — always visible */}
           {user ? (
