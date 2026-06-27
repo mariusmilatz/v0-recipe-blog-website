@@ -21,9 +21,13 @@ import {
  * Breakpoint behaviour:
  *
  * ≥ xl  (1280px+)  — full desktop: logo+name | nav links | Contact · Support Us · Profile
- * lg–xl (1024–1279) — logo icon only · Contact · Profile in header; nav links + Support Us in menu
- * md–lg  (768–1023) — logo icon only · Profile in header; nav links + Support Us + Contact in menu
- * < md   (<768px)   — logo icon only; everything in menu
+ * lg–xl (1024–1279) — logo+name · Contact · Support Us · Profile · ≡ (nav in menu)
+ * md–lg  (768–1023) — logo icon · Profile · ≡ (nav + Support Us + Contact in menu)
+ * < md   (<768px)   — logo icon · ≡ (everything in menu)
+ *
+ * Key: Support Us, Contact and logo name all share the lg breakpoint,
+ * so they stay visible much longer — only disappearing below 1024px.
+ * Nav links have their own xl (1280px) threshold.
  */
 
 export function Navbar() {
@@ -41,10 +45,10 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
 
-        {/* Logo — name shows at xl+ (same point nav links and Support Us appear) */}
+        {/* Logo — name visible at lg+ */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Leaf className="h-6 w-6 text-[#6a994e]" />
-          <span className="hidden xl:inline-block text-lg font-semibold whitespace-nowrap">
+          <span className="hidden lg:inline-block text-lg font-semibold whitespace-nowrap">
             Vegan Side Project
           </span>
         </Link>
@@ -67,8 +71,8 @@ export function Navbar() {
             <Button size="sm" variant="outline" className="hidden lg:flex">Contact</Button>
           </Link>
 
-          {/* Support Us — visible xl+ */}
-          <div className="hidden xl:flex">
+          {/* Support Us — visible lg+ (same threshold as Contact & logo name) */}
+          <div className="hidden lg:flex">
             <DonateButton size="sm" />
           </div>
 
@@ -118,7 +122,7 @@ export function Navbar() {
             <SheetContent side="right" className="w-64 sm:w-72">
               <div className="flex flex-col gap-4 mt-8 px-2">
 
-                {/* Nav links — always in menu */}
+                {/* Nav links — always in menu (menu only shows below xl) */}
                 <Link href="/" className="text-base font-medium" onClick={() => setIsOpen(false)}>Home</Link>
                 <Link href="/recipes" className="text-base font-medium" onClick={() => setIsOpen(false)}>Recipes</Link>
                 <Link href="/tips" className="text-base font-medium" onClick={() => setIsOpen(false)}>Tips & Tricks</Link>
@@ -127,21 +131,20 @@ export function Navbar() {
                 <Link href="/submit-recipe" className="text-base font-medium" onClick={() => setIsOpen(false)}>Submit Recipe</Link>
 
                 {/*
-                  Support Us: in menu below xl.
-                  Contact: in menu below lg (nested inside the xl:hidden block).
-                  The outer div hides at xl+ since both are in the header then.
+                  Support Us + Contact: in menu below lg only.
+                  At lg+ they're in the header, so hide them here with lg:hidden.
+                  Support Us listed first (it's the first to join the menu conceptually).
                 */}
-                <div className="xl:hidden flex flex-col gap-4 border-t pt-4">
+                <div className="lg:hidden flex flex-col gap-4 border-t pt-4">
                   <Link href="/donate" className="text-base font-medium" onClick={() => setIsOpen(false)}>
                     Support Us
                   </Link>
-                  {/* Contact only in menu below lg */}
-                  <Link href="/contact" className="text-base font-medium lg:hidden" onClick={() => setIsOpen(false)}>
+                  <Link href="/contact" className="text-base font-medium" onClick={() => setIsOpen(false)}>
                     Contact
                   </Link>
                 </div>
 
-                {/* Profile / Auth — only in menu below md */}
+                {/* Profile / Auth — in menu below md only */}
                 <div className="md:hidden border-t pt-4">
                   {user ? (
                     <>
