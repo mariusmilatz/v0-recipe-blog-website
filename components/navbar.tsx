@@ -18,13 +18,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 /**
- * Responsive breakpoint behaviour:
+ * Breakpoint behaviour:
  *
- * ≥ xl  (1280px+)  — full desktop: logo+name | nav links | Contact, Support Us, Profile
- * lg–xl (1024–1279) — nav links go into menu; Contact, Support Us, Profile stay in header
- * md–lg  (768–1023) — Support Us joins menu; logo name hides; Contact, Profile stay in header
- * sm–md  (640–767)  — Contact joins menu; Profile stays in header
- * < sm   (<640px)   — Profile joins menu; only logo icon + hamburger in header
+ * ≥ xl  (1280px+)  — full desktop: logo+name | nav links | Contact · Support Us · Profile
+ * lg–xl (1024–1279) — logo icon only · Contact · Profile in header; nav links + Support Us in menu
+ * md–lg  (768–1023) — logo icon only · Profile in header; nav links + Support Us + Contact in menu
+ * < md   (<768px)   — logo icon only; everything in menu
  */
 
 export function Navbar() {
@@ -42,15 +41,15 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
 
-        {/* Logo — name hides below lg (same point Support Us leaves header) */}
+        {/* Logo — name shows at xl+ (same point nav links and Support Us appear) */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Leaf className="h-6 w-6 text-[#6a994e]" />
-          <span className="hidden lg:inline-block text-lg font-semibold whitespace-nowrap">
+          <span className="hidden xl:inline-block text-lg font-semibold whitespace-nowrap">
             Vegan Side Project
           </span>
         </Link>
 
-        {/* Nav links — visible at xl+ only */}
+        {/* Nav links — xl+ only */}
         <nav className="hidden xl:flex gap-6 mx-6">
           <Link href="/" className="text-sm font-medium hover:underline underline-offset-4">Home</Link>
           <Link href="/recipes" className="text-sm font-medium hover:underline underline-offset-4">Recipes</Link>
@@ -63,21 +62,21 @@ export function Navbar() {
         {/* Right-side actions */}
         <div className="flex items-center gap-2">
 
-          {/* Contact — visible md+ */}
+          {/* Contact — visible lg+ */}
           <Link href="/contact" passHref>
-            <Button size="sm" variant="outline" className="hidden md:flex">Contact</Button>
+            <Button size="sm" variant="outline" className="hidden lg:flex">Contact</Button>
           </Link>
 
-          {/* Support Us — visible lg+ */}
-          <div className="hidden lg:flex">
+          {/* Support Us — visible xl+ */}
+          <div className="hidden xl:flex">
             <DonateButton size="sm" />
           </div>
 
-          {/* Profile / Auth — visible sm+ */}
+          {/* Profile / Auth — visible md+ */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="hidden sm:flex items-center gap-2">
+                <Button size="sm" variant="outline" className="hidden md:flex items-center gap-2">
                   <User className="h-4 w-4" />
                   {profile?.name?.split(" ")[0] || "Account"}
                 </Button>
@@ -103,7 +102,7 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button asChild size="sm" className="hidden sm:flex bg-[#6a994e] hover:bg-[#5a8540]">
+            <Button asChild size="sm" className="hidden md:flex bg-[#6a994e] hover:bg-[#5a8540]">
               <Link href="/login">Sign in</Link>
             </Button>
           )}
@@ -119,7 +118,7 @@ export function Navbar() {
             <SheetContent side="right" className="w-64 sm:w-72">
               <div className="flex flex-col gap-4 mt-8 px-2">
 
-                {/* Nav links — always in the menu (menu only appears below xl) */}
+                {/* Nav links — always in menu */}
                 <Link href="/" className="text-base font-medium" onClick={() => setIsOpen(false)}>Home</Link>
                 <Link href="/recipes" className="text-base font-medium" onClick={() => setIsOpen(false)}>Recipes</Link>
                 <Link href="/tips" className="text-base font-medium" onClick={() => setIsOpen(false)}>Tips & Tricks</Link>
@@ -128,22 +127,22 @@ export function Navbar() {
                 <Link href="/submit-recipe" className="text-base font-medium" onClick={() => setIsOpen(false)}>Submit Recipe</Link>
 
                 {/*
-                  Support Us + Contact overflow section.
-                  The outer div is lg:hidden — entire block hides at lg+
-                  (at lg+ both Support Us and Contact are in the header).
-                  Inside, Contact also has md:hidden so it only shows below md.
+                  Support Us: in menu below xl.
+                  Contact: in menu below lg (nested inside the xl:hidden block).
+                  The outer div hides at xl+ since both are in the header then.
                 */}
-                <div className="lg:hidden flex flex-col gap-4 border-t pt-4">
+                <div className="xl:hidden flex flex-col gap-4 border-t pt-4">
                   <Link href="/donate" className="text-base font-medium" onClick={() => setIsOpen(false)}>
                     Support Us
                   </Link>
-                  <Link href="/contact" className="text-base font-medium md:hidden" onClick={() => setIsOpen(false)}>
+                  {/* Contact only in menu below lg */}
+                  <Link href="/contact" className="text-base font-medium lg:hidden" onClick={() => setIsOpen(false)}>
                     Contact
                   </Link>
                 </div>
 
-                {/* Profile / Auth — only in menu below sm */}
-                <div className="sm:hidden border-t pt-4">
+                {/* Profile / Auth — only in menu below md */}
+                <div className="md:hidden border-t pt-4">
                   {user ? (
                     <>
                       <Link href="/profile" className="text-base font-medium block mb-4" onClick={() => setIsOpen(false)}>
