@@ -547,7 +547,7 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
             {/* Recipe cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-72 overflow-y-auto pr-1">
               {filteredRecipes.map(recipe => (
-                <div key={recipe.id} className="border rounded-lg overflow-hidden bg-card">
+                <div key={recipe.id} className="border rounded-lg overflow-hidden bg-card flex flex-col">
                   <div className="relative">
                     <img src={recipe.image || "/placeholder.svg"} alt={recipe.title} className="w-full h-20 object-cover" />
                     <button
@@ -560,8 +560,8 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
                         : <Bookmark className="h-3.5 w-3.5 text-gray-400" />}
                     </button>
                   </div>
-                  <div className="p-2">
-                    <p className="text-xs font-medium leading-tight line-clamp-2 mb-1">{recipe.title}</p>
+                  <div className="p-2 flex flex-col flex-1">
+                    <p className="text-xs font-medium leading-tight line-clamp-2 mb-1 flex-1">{recipe.title}</p>
                     {recipe.cookTime && (
                       <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 mb-1.5">
                         <Clock className="h-2.5 w-2.5" />{recipe.cookTime}
