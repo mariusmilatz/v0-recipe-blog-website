@@ -136,19 +136,14 @@ export default function ContactPage() {
               <div className="flex items-start space-x-4">
                 <MessageSquare className="h-6 w-6 text-[#6a994e] mt-0.5" />
                 <div>
-                  <h3 className="font-medium">Follow & Message</h3>
+                  <h3 className="font-medium">Follow</h3>
                   <p className="text-sm text-muted-foreground">
                     Connect with us on social media for updates, tips, and more.
                   </p>
                   <div className="flex gap-2 mt-2">
                     <Button variant="outline" size="sm" asChild>
-                      <a href="#" target="_blank" rel="noopener noreferrer">
+                      <a href="https://www.instagram.com/vegansideproject/" target="_blank" rel="noopener noreferrer">
                         Instagram
-                      </a>
-                    </Button>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href="#" target="_blank" rel="noopener noreferrer">
-                        Twitter
                       </a>
                     </Button>
                     <Button variant="outline" size="sm" asChild>
