@@ -5,9 +5,7 @@ import Link from "next/link"
 import { Clock, Search, X } from "lucide-react"
 import { calculateTotalTime } from "@/lib/time-utils"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 
 const CATEGORY_MAP: Record<string, string> = {
   "Main Course": "mains",
@@ -182,7 +180,7 @@ export default function RecipesClient({ recipes }: { recipes: any[] }) {
                 <p className="text-muted-foreground text-sm mt-4">No recipes found.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {visible.map((recipe: any) => (
+                  {visible.map((recipe: any, i: number) => (
                     <RecipeCard
                       key={recipe.id}
                       title={recipe.title}
@@ -192,6 +190,7 @@ export default function RecipesClient({ recipes }: { recipes: any[] }) {
                       categories={recipe.courses || [recipe.category]}
                       dietary={recipe.dietary || []}
                       slug={recipe.slug}
+                      index={i}
                     />
                   ))}
                 </div>
@@ -212,6 +211,7 @@ function RecipeCard({
   categories,
   dietary,
   slug,
+  index = 0,
 }: {
   title: string
   description: string
@@ -220,17 +220,34 @@ function RecipeCard({
   categories: string[]
   dietary: string[]
   slug: string
+  index?: number
 }) {
   const categoryList = Array.isArray(categories) ? categories : [categories].filter(Boolean)
   const isGlutenFree = dietary?.includes("Gluten Free")
+  const [loaded, setLoaded] = useState(false)
+
+  // Stagger image loading by row so images always load top-to-bottom
+  const [activeSrc, setActiveSrc] = useState(index < 6 ? image : "")
+  useEffect(() => {
+    if (index >= 6) {
+      const rowDelay = (Math.floor(index / 3) - 1) * 80
+      const t = setTimeout(() => setActiveSrc(image), rowDelay)
+      return () => clearTimeout(t)
+    }
+  }, [image, index])
 
   return (
-    <Card className="overflow-hidden flex flex-col h-[450px]">
-      <div className="aspect-video w-full overflow-hidden relative">
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col h-[450px]">
+      {/* Full-bleed image — no top padding */}
+      <div className="h-[260px] w-full flex-shrink-0 bg-muted relative">
         <img
-          src={image || "/placeholder.svg?height=300&width=500"}
+          src={activeSrc || "/placeholder.svg?height=300&width=500"}
           alt={title}
-          className="object-cover w-full h-full transition-all hover:scale-105"
+          fetchPriority={index < 6 ? "high" : "auto"}
+          onLoad={() => setLoaded(true)}
+          className={`object-cover w-full h-full transition-all duration-500 hover:scale-105 ${
+            loaded ? "opacity-100 blur-0" : "opacity-0 blur-sm"
+          }`}
         />
         {isGlutenFree && (
           <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-green-200">
@@ -238,30 +255,27 @@ function RecipeCard({
           </span>
         )}
       </div>
-      <CardHeader className="pb-2">
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex-grow flex flex-col justify-end pb-4">
-        <div className="grid grid-cols-1 gap-2 text-sm text-gray-500">
-          <div className="flex items-center">
-            <Clock className="mr-1 h-3 w-3" />
-            <span>{time || "N/A"}</span>
-          </div>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {categoryList.map((cat, index) => (
-              <Badge key={index} variant="plain" className="text-xs">
-                {index > 0 ? `, ${cat}` : cat || "N/A"}
-              </Badge>
-            ))}
-          </div>
+
+      {/* Text area */}
+      <div className="flex flex-col flex-grow px-4 pt-3 pb-4">
+        <p className="font-semibold text-base leading-snug">{title}</p>
+        <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-snug">{description}</p>
+
+        {/* Spacer pushes time + tags + button to bottom */}
+        <div className="flex-grow" />
+
+        <div className="flex items-center justify-between text-xs text-black mb-3">
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {time || "N/A"}
+          </span>
+          <span className="text-right">{categoryList.join(", ")}</span>
         </div>
-      </CardContent>
-      <CardFooter className="pt-0">
+
         <Button asChild variant="outline" className="w-full border border-gray-300">
           <Link href={`/recipes/${slug}`}>View Recipe</Link>
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   )
 }
