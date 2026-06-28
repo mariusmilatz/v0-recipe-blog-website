@@ -44,35 +44,9 @@ function getPropertyValue(property: any) {
   }
 }
 
-// Extract rich_text while preserving bold annotations as **markers**.
-// Notion stores section headers (e.g. "Apple Filling:") as bold rich_text runs.
-// The plain-text extractor strips that, so the parser can't tell them apart from
-// regular ingredients. This function wraps each bold line with ** so the parser
-// detects it as a subtitle and renders it without a bullet point.
-function getRichTextWithBoldMarkers(property: any): string {
-  if (!property || property.type !== "rich_text") return ""
-  return (
-    property.rich_text
-      ?.map((t: any) => {
-        if (t.annotations?.bold) {
-          // A single run can span multiple lines — wrap each non-empty line individually
-          return t.plain_text
-            .split("\n")
-            .map((line: string) => (line.trim() ? `**${line.trim()}**` : ""))
-            .join("\n")
-        }
-        return t.plain_text
-      })
-      .join("") || ""
-  )
-}
-
 // Build proxy image URLs from a page ID — avoids Notion's expiring signed S3 URLs
-// The `v` param is derived from the page's last_edited_time so that swapping an image
-// in Notion changes the URL, busting the browser cache automatically.
-function buildProxyImages(pageId: string, count: number, updatedAt?: string): string[] {
-  const v = updatedAt ? `&v=${new Date(updatedAt).getTime()}` : ""
-  return Array.from({ length: count }, (_, i) => `/api/image-proxy?pageId=${pageId}&index=${i}${v}`)
+function buildProxyImages(pageId: string, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => `/api/image-proxy?pageId=${pageId}&index=${i}`)
 }
 
 // Function to parse ingredients with subtitles
@@ -94,7 +68,7 @@ function parseIngredientsWithSubtitles(ingredientsText: string): { subtitle: str
         }
         currentSubtitle = line.slice(2, -2)
       } else {
-        currentItems.push(line.replace(/^\s*-\s*/, "").trim())
+        currentItems.push(line)
       }
     }
 
@@ -253,6 +227,9 @@ export async function fetchRecipesFromNotion() {
           const cuisine = getPropertyValue(properties.Cuisine) || ""
           const isFavorite = getPropertyValue(properties.favourites) || false
 
+          const dietary = getPropertyValue(properties["Dietary"]) || []
+          const dietaryArray = Array.isArray(dietary) ? dietary : [dietary].filter(Boolean)
+
           const slug = title
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-")
@@ -264,8 +241,7 @@ export async function fetchRecipesFromNotion() {
           const formattedCookTime = cookTime ? (cookTime.includes("min") ? cookTime : `${cookTime} min`) : ""
 
           // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
-          // Pass last_edited_time as version so swapping an image in Notion busts the browser cache
-          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length, page.last_edited_time)
+          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length)
 
           return {
             id: page.id,
@@ -280,6 +256,7 @@ export async function fetchRecipesFromNotion() {
             courses: courseArray,
             category: primaryCategory,
             cuisine,
+            dietary: dietaryArray,
             isFavorite,
             createdAt: page.created_time,
             updatedAt: page.last_edited_time,
@@ -362,6 +339,9 @@ export async function fetchFeaturedRecipesFromNotion() {
 
           const cuisine = getPropertyValue(properties.Cuisine) || ""
 
+          const dietary = getPropertyValue(properties["Dietary"]) || []
+          const dietaryArray = Array.isArray(dietary) ? dietary : [dietary].filter(Boolean)
+
           const slug = title
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-")
@@ -372,8 +352,7 @@ export async function fetchFeaturedRecipesFromNotion() {
           const formattedPrepTime = prepTime ? (prepTime.includes("min") ? prepTime : `${prepTime} min`) : ""
           const formattedCookTime = cookTime ? (cookTime.includes("min") ? cookTime : `${cookTime} min`) : ""
 
-          // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
-          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length, page.last_edited_time)
+          const proxyImages = buildProxyImages(page.id, (rawImages as string[]).length)
 
           return {
             id: page.id,
@@ -388,6 +367,7 @@ export async function fetchFeaturedRecipesFromNotion() {
             courses: courseArray,
             category: primaryCategory,
             cuisine,
+            dietary: dietaryArray,
             isFavorite: true,
             createdAt: page.created_time,
             updatedAt: page.last_edited_time,
@@ -428,6 +408,9 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
     const cuisine = getPropertyValue(properties.Cuisine) || ""
     const isFavorite = getPropertyValue(properties.favourites) || false
 
+    const dietary = getPropertyValue(properties["Dietary"]) || []
+    const dietaryArray = Array.isArray(dietary) ? dietary : [dietary].filter(Boolean)
+
     const formattedPrepTime = prepTime ? (prepTime.includes("min") ? prepTime : `${prepTime} min`) : ""
     const formattedCookTime = cookTime ? (cookTime.includes("min") ? cookTime : `${cookTime} min`) : ""
 
@@ -438,9 +421,7 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
 
     const primaryCategory = courseArray.length > 0 ? courseArray[0] : "Main"
 
-    // Use bold-preserving extractor so section headers (bolded in Notion) are
-    // correctly detected as subtitles and rendered without bullet points.
-    const ingredientsText = getRichTextWithBoldMarkers(properties.Ingredients) || ""
+    const ingredientsText = getPropertyValue(properties.Ingredients) || ""
     const ingredientSections = parseIngredientsWithSubtitles(ingredientsText)
 
     const instructionsText = getPropertyValue(properties.Instructions) || ""
@@ -449,9 +430,7 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
     const tipsText = getPropertyValue(properties["Tips & Notes"]) || ""
     const tips = tipsText.split("\n").filter((tip: string) => tip.trim() !== "")
 
-    // Use proxy URLs instead of raw Notion S3 URLs (which expire after ~1 hour)
-    // Version param ensures swapping an image in Notion immediately shows on the site
-    const proxyImages = buildProxyImages(pageId, (rawImages as string[]).length, page.last_edited_time)
+    const proxyImages = buildProxyImages(pageId, (rawImages as string[]).length)
 
     return {
       id: pageId,
@@ -466,6 +445,7 @@ export async function fetchRecipeByIdFromNotion(pageId: string) {
       courses: courseArray,
       category: primaryCategory,
       cuisine,
+      dietary: dietaryArray,
       isFavorite,
       ingredientSections,
       instructions,
