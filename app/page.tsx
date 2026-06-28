@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChevronRight, Clock } from "lucide-react"
+import { ChevronRight, Clock, Leaf } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { fetchFeaturedRecipesFromNotion } from "@/lib/notion"
@@ -56,6 +56,7 @@ export default async function Home() {
                   const categoryList = Array.isArray(recipe.courses) && recipe.courses.length > 0
                     ? recipe.courses
                     : [recipe.category || "Main"]
+                  const isGlutenFree = recipe.dietary?.includes("Gluten Free")
 
                   return (
                     <div
@@ -63,13 +64,19 @@ export default async function Home() {
                       className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col h-[450px]"
                     >
                       {/* Image flush to top */}
-                      <div className="h-[260px] w-full flex-shrink-0 bg-muted">
+                      <div className="h-[260px] w-full flex-shrink-0 bg-muted relative">
                         <img
                           src={recipe.image || "/placeholder.svg"}
                           alt={recipe.title}
                           fetchPriority="high"
                           className="object-cover w-full h-full transition-all hover:scale-105"
                         />
+                        {isGlutenFree && (
+                          <span className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#6a994e] text-[11px] font-semibold px-2 py-1 rounded-full shadow-sm">
+                            <Leaf className="h-3 w-3" />
+                            GF
+                          </span>
+                        )}
                       </div>
 
                       {/* Text area */}
