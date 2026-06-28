@@ -9,7 +9,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase/client"
 import { fetchRecipeBySlug } from "@/app/actions/recipe-actions"
 import { useAuth } from "@/context/auth-context"
 import { toast } from "@/hooks/use-toast"
@@ -127,7 +127,7 @@ ${html}
 
 export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] }) {
   const { user } = useAuth()
-  const supabase = createClientComponentClient()
+  const supabase = createClient()
 
   // Core state
   const [weekStart, setWeekStart] = useState<DayOfWeek>("monday")
