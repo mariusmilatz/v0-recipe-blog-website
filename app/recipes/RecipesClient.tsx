@@ -38,40 +38,31 @@ function recipeMatchesTab(recipe: any, tabCategory: string) {
 }
 
 // Default suggestions shown when the search bar is focused but empty
-const DEFAULT_SUGGESTIONS = ["Breakfast", "Italian", "Main Dish", "Dessert"]
+const DEFAULT_SUGGESTIONS = ["Gluten Free", "Breakfast", "Italian", "Main Dish", "Dessert"]
 
-export default function RecipesClient({
-  recipes,
-  initialTab = "all",
-}: {
-  recipes: any[]
-  initialTab?: string
-}) {
+export default function RecipesClient({ recipes }: { recipes: any[] }) {
   const [query, setQuery] = useState("")
-  const [activeTab, setActiveTab] = useState(initialTab)
+  const [activeTab, setActiveTab] = useState("all")
   const [showDropdown, setShowDropdown] = useState(false)
-
-  // Sync tab when navigating from footer links while already on /recipes
-  useEffect(() => {
-    setActiveTab(initialTab)
-  }, [initialTab])
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Build a flat list of all suggestion tokens (courses + cuisines + recipe titles)
+  // Build a flat list of all suggestion tokens (dietary + courses + cuisines + recipe titles)
   const allSuggestions = useMemo(() => {
+    const dietary = [...new Set(recipes.flatMap((r: any) => r.dietary || []).filter(Boolean))] as string[]
     const courses = [...new Set(recipes.flatMap((r: any) => r.courses || []).filter(Boolean))] as string[]
     const cuisines = [...new Set(recipes.map((r: any) => r.cuisine).filter(Boolean))] as string[]
     const titles = recipes.map((r: any) => r.title)
-    return [...courses, ...cuisines, ...titles]
+    // dietary first so "Gluten Free" always surfaces at top
+    return [...dietary, ...courses, ...cuisines, ...titles]
   }, [recipes])
 
-  // Dropdown suggestions — default 4 when empty, or filtered matches when typing
+  // Dropdown suggestions — default when empty, or filtered matches when typing
   const suggestions = useMemo(() => {
     if (!query.trim()) return DEFAULT_SUGGESTIONS
     const q = query.toLowerCase()
     const startsWith = allSuggestions.filter(s => s.toLowerCase().startsWith(q))
     const contains = allSuggestions.filter(s => !s.toLowerCase().startsWith(q) && s.toLowerCase().includes(q))
-    return [...startsWith, ...contains].slice(0, 4)
+    return [...startsWith, ...contains].slice(0, 5)
   }, [query, allSuggestions])
 
   // Close dropdown on outside click
@@ -85,7 +76,7 @@ export default function RecipesClient({
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
-  // Filter recipes: matches title, description, cuisine, or any course tag
+  // Filter recipes: matches title, description, cuisine, course tags, or dietary tags
   const filteredRecipes = useMemo(() => {
     if (!query.trim()) return recipes
     const q = query.toLowerCase()
@@ -93,7 +84,8 @@ export default function RecipesClient({
       r.title?.toLowerCase().includes(q) ||
       r.description?.toLowerCase().includes(q) ||
       r.cuisine?.toLowerCase().includes(q) ||
-      r.courses?.some((c: string) => c.toLowerCase().includes(q))
+      r.courses?.some((c: string) => c.toLowerCase().includes(q)) ||
+      r.dietary?.some((d: string) => d.toLowerCase().includes(q))
     )
   }, [recipes, query])
 
@@ -123,8 +115,8 @@ export default function RecipesClient({
             <input
               type="text"
               value={query}
-              placeholder="Search recipes, cuisines, tags..."
-              className="w-[260px] py-2 px-3 text-sm bg-transparent outline-none"
+              placeholder="Search recipes, cuisines, gluten free..."
+              className="w-[280px] py-2 px-3 text-sm bg-transparent outline-none"
               onFocus={() => setShowDropdown(true)}
               onChange={(e) => {
                 setQuery(e.target.value)
@@ -154,7 +146,7 @@ export default function RecipesClient({
                   key={i}
                   className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-2 transition-colors"
                   onMouseDown={(e) => {
-                    e.preventDefault() // prevent input blur before the click registers
+                    e.preventDefault()
                     selectSuggestion(suggestion)
                   }}
                 >
@@ -190,7 +182,7 @@ export default function RecipesClient({
                 <p className="text-muted-foreground text-sm mt-4">No recipes found.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {visible.map((recipe: any, index: number) => (
+                  {visible.map((recipe: any) => (
                     <RecipeCard
                       key={recipe.id}
                       title={recipe.title}
@@ -198,8 +190,8 @@ export default function RecipesClient({
                       image={recipe.image}
                       time={calculateTotalTime(recipe.prepTime, recipe.cookTime)}
                       categories={recipe.courses || [recipe.category]}
+                      dietary={recipe.dietary || []}
                       slug={recipe.slug}
-                      index={index}
                     />
                   ))}
                 </div>
@@ -218,66 +210,58 @@ function RecipeCard({
   image,
   time,
   categories,
+  dietary,
   slug,
-  index = 0,
 }: {
   title: string
   description: string
   image: string
   time: string
   categories: string[]
+  dietary: string[]
   slug: string
-  index?: number
 }) {
   const categoryList = Array.isArray(categories) ? categories : [categories].filter(Boolean)
-  const [loaded, setLoaded] = useState(false)
-
-  // Stagger image loading by row so images always load top-to-bottom.
-  // First 6 cards (rows 1-2) load immediately; each subsequent row waits
-  // an extra 80ms. This prevents a card from row 5 loading before row 2.
-  const [activeSrc, setActiveSrc] = useState(index < 6 ? image : "")
-  useEffect(() => {
-    if (index >= 6) {
-      const rowDelay = (Math.floor(index / 3) - 1) * 80
-      const t = setTimeout(() => setActiveSrc(image), rowDelay)
-      return () => clearTimeout(t)
-    }
-  }, [image, index])
+  const isGlutenFree = dietary?.includes("Gluten Free")
 
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col h-[450px]">
-      <div className="h-[260px] w-full flex-shrink-0 bg-muted">
+    <Card className="overflow-hidden flex flex-col h-[450px]">
+      <div className="aspect-video w-full overflow-hidden relative">
         <img
-          src={activeSrc || "/placeholder.svg?height=300&width=500"}
+          src={image || "/placeholder.svg?height=300&width=500"}
           alt={title}
-          fetchPriority={index < 6 ? "high" : "auto"}
-          onLoad={() => setLoaded(true)}
-          className={`object-cover w-full h-full transition-all duration-500 hover:scale-105 ${
-            loaded ? "opacity-100 blur-0" : "opacity-0 blur-sm"
-          }`}
+          className="object-cover w-full h-full transition-all hover:scale-105"
         />
-      </div>
-
-      {/* Text area */}
-      <div className="flex flex-col flex-grow px-4 pt-3 pb-4">
-        <p className="font-semibold text-base leading-snug">{title}</p>
-        <p className="text-sm text-muted-foreground mt-1 line-clamp-2 leading-snug">{description}</p>
-
-        {/* Push time + tags + button to the bottom */}
-        <div className="flex-grow" />
-
-        <div className="flex items-center justify-between text-xs text-black mb-3">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {time || "N/A"}
+        {isGlutenFree && (
+          <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-green-200">
+            GF
           </span>
-          <span className="text-right">{categoryList.join(", ")}</span>
+        )}
+      </div>
+      <CardHeader className="pb-2">
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow flex flex-col justify-end pb-4">
+        <div className="grid grid-cols-1 gap-2 text-sm text-gray-500">
+          <div className="flex items-center">
+            <Clock className="mr-1 h-3 w-3" />
+            <span>{time || "N/A"}</span>
+          </div>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {categoryList.map((cat, index) => (
+              <Badge key={index} variant="plain" className="text-xs">
+                {index > 0 ? `, ${cat}` : cat || "N/A"}
+              </Badge>
+            ))}
+          </div>
         </div>
-
+      </CardContent>
+      <CardFooter className="pt-0">
         <Button asChild variant="outline" className="w-full border border-gray-300">
           <Link href={`/recipes/${slug}`}>View Recipe</Link>
         </Button>
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   )
 }
