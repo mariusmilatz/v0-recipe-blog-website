@@ -84,17 +84,129 @@ function firstEmptyDay(slots: WeekSlots, days: DayOfWeek[], meal: MealType, coun
   return days.slice(0, count).find(d => !slots[d][meal]) ?? null
 }
 
-function categorize(ingredient: string): string {
-  const s = ingredient.toLowerCase()
-  if (/\b(onion|garlic|tomato|pepper|carrot|potato|spinach|broccoli|cauliflower|zucchini|courgette|aubergine|eggplant|leek|mushroom|pumpkin|squash|lettuce|cabbage|celery|ginger|chilli|chili|avocado|spring onion|scallion|coriander leaf|parsley|basil|herb)\b/.test(s)) return "Produce"
-  if (/\b(pasta|rice|noodle|flour|oat|quinoa|couscous|bread|breadcrumb)\b/.test(s)) return "Grains & Pasta"
-  if (/\b(coconut milk|passata|stock|broth|canned|tinned|chickpea|kidney bean|black bean|lentil|jackfruit)\b/.test(s)) return "Tins & Jars"
+// ─── Shopping list: ingredient parser & aggregator ───────────────────────────
+
+const UNIT_MAP: Record<string, string> = {
+  g: "g", gram: "g", grams: "g",
+  kg: "kg", kilogram: "kg", kilograms: "kg",
+  ml: "ml", milliliter: "ml", milliliters: "ml", millilitre: "ml", millilitres: "ml",
+  l: "l", liter: "l", liters: "l", litre: "l", litres: "l",
+  tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp",
+  tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp",
+  cup: "cup", cups: "cup",
+  clove: "clove", cloves: "clove",
+  head: "head", heads: "head",
+  can: "can", cans: "can", tin: "can", tins: "can",
+  bunch: "bunch", bunches: "bunch",
+  stalk: "stalk", stalks: "stalk",
+  sprig: "sprig", sprigs: "sprig",
+  handful: "handful", handfuls: "handful",
+  pinch: "pinch", pinches: "pinch",
+  sheet: "sheet", sheets: "sheet",
+}
+
+const WATER_RE = /^(water|boiling water|hot water|cold water|warm water|ice water|salted water)$/i
+
+function parseFraction(s: string): number {
+  const uni: Record<string, number> = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125 }
+  if (uni[s] !== undefined) return uni[s]
+  if (s.includes("/")) { const [n, d] = s.split("/"); return parseFloat(n) / parseFloat(d) }
+  return parseFloat(s)
+}
+
+function formatQty(n: number): string {
+  if (Number.isInteger(n)) return String(n)
+  const fracs: [number, string][] = [[0.5,"½"],[0.25,"¼"],[0.75,"¾"],[1/3,"⅓"],[2/3,"⅔"],[0.125,"⅛"]]
+  const exact = fracs.find(([v]) => Math.abs(n - v) < 0.05)
+  if (exact) return exact[1]
+  const whole = Math.floor(n)
+  if (whole > 0) {
+    const fracPart = fracs.find(([v]) => Math.abs((n - whole) - v) < 0.05)
+    if (fracPart) return `${whole}${fracPart[1]}`
+  }
+  return n.toFixed(1).replace(/\.0$/, "")
+}
+
+function categorize(name: string): string {
+  const s = name.toLowerCase()
+  if (/\b(onion|shallot|garlic|leek|spring onion|scallion|tomato|pepper|capsicum|carrot|potato|sweet potato|yam|spinach|kale|chard|broccoli|cauliflower|zucchini|courgette|aubergine|eggplant|mushroom|pumpkin|squash|butternut|lettuce|cabbage|celery|ginger|chilli|chili|avocado|coriander leaf|parsley|basil|herb|mint|dill|chive|tarragon|sage|bay|lemon|lime|orange|banana|apple|mango|berr|blueberr|raspberry|strawberr|cherry|peach|plum|apricot|fig|date|coconut flesh|beetroot|beet|fennel|asparagus|artichoke|corn|sweetcorn|pea|edamame|bean sprout|bok choy|pak choi|cucumber|radish|turnip|swede|parsnip|courgette|tofu|tempeh|jackfruit)\b/.test(s)) return "Produce"
+  if (/\b(pasta|rice|noodle|flour|oat|rolled oat|quinoa|couscous|bread|breadcrumb|cracker|tortilla|barley|polenta|cornmeal|semolina|bulgur|farro|millet|spelt|buckwheat)\b/.test(s)) return "Grains & Pasta"
+  if (/\b(coconut milk|coconut cream|passata|chopped tomato|diced tomato|plum tomato|kidney bean|chickpea|butter bean|cannellini|black bean|lentil|split pea|baked bean|vegetable stock|stock cube|broth|jackfruit can)\b/.test(s)) return "Tins & Jars"
   if (/\boil\b/.test(s)) return "Oils"
-  if (/\b(salt|pepper|cumin|paprika|turmeric|cardamom|cinnamon|oregano|thyme|rosemary|bay leaf|curry|garam masala|cayenne|smoked|spice|seasoning)\b/.test(s)) return "Spices & Seasonings"
-  if (/\b(soy sauce|tamari|miso|vinegar|tahini|peanut butter|maple syrup|sugar|mustard|ketchup|sriracha|hot sauce|nutritional yeast|hoisin)\b/.test(s)) return "Sauces & Condiments"
-  if (/\b(almond milk|oat milk|soy milk|coconut yogh?urt|vegan butter|vegan cheese|plant.based cream)\b/.test(s)) return "Plant-Based Dairy"
-  if (/\b(cashew|almond|walnut|pecan|pine nut|pumpkin seed|sunflower seed|sesame|chia|flax|hemp seed)\b/.test(s)) return "Nuts & Seeds"
+  if (/\b(salt|pepper|cumin|paprika|turmeric|cardamom|cinnamon|oregano|thyme|rosemary|bay leaf|curry powder|garam masala|cayenne|chilli flake|red pepper flake|allspice|nutmeg|star anise|coriander seed|fennel seed|mustard seed|fenugreek|sumac|harissa|ras el hanout|five spice|mixed spice|mixed herb|vanilla|saffron|smoked|seasoning)\b/.test(s)) return "Spices & Seasonings"
+  if (/\b(soy sauce|tamari|miso|vinegar|tahini|peanut butter|almond butter|cashew butter|maple syrup|agave|sugar|brown sugar|caster sugar|mustard|ketchup|sriracha|hot sauce|nutritional yeast|hoisin|balsamic|tomato paste|tomato puree|sun-dried tomato|lemon juice|lime juice|tamarind|mirin|coconut aminos|liquid smoke|yeast extract|marmite)\b/.test(s)) return "Sauces & Condiments"
+  if (/\b(almond milk|oat milk|soy milk|rice milk|cashew milk|coconut yogh|vegan butter|vegan cheese|plant.based cream|oat cream|soy cream|cream cheese|dairy.free)\b/.test(s)) return "Plant-Based Dairy"
+  if (/\b(cashew|almond|walnut|pecan|pine nut|pumpkin seed|sunflower seed|sesame seed|sesame|chia seed|flaxseed|flax seed|hemp seed|poppy seed|linseed|brazil nut|hazelnut|pistachio|macadamia|desiccated coconut|coconut flake|shredded coconut)\b/.test(s)) return "Nuts & Seeds"
+  if (/\b(tofu|tempeh|seitan|tvp)\b/.test(s)) return "Plant-Based Protein"
   return "Other"
+}
+
+interface ParsedIngredient { qty: number | null; unit: string | null; name: string; category: string }
+
+function parseIngredient(raw: string): ParsedIngredient | null {
+  // Strip leading bullet / dash / whitespace
+  let s = raw.replace(/^[-–—•*]\s*/, "").trim()
+  if (!s) return null
+  // Remove parenthetical notes: "100g cashews (roughly chopped)" → "100g cashews"
+  s = s.replace(/\s*\([^)]*\)/g, "").trim()
+  // Filter water
+  if (WATER_RE.test(s.split(/[\s,]/)[0]) || WATER_RE.test(s)) return null
+  // Strip trailing descriptor after comma: "100g cashews, roughly chopped" → "100g cashews"
+  s = s.replace(/,\s*(roughly|finely|thinly|coarsely|freshly|lightly|generously)?\s*(chopped|diced|sliced|minced|grated|crushed|mashed|roasted|toasted|soaked|drained|rinsed|peeled|deseeded|halved|quartered|juiced|zested|melted|softened|crumbled|trimmed|shredded|cubed|roughly broken|cut into[^$]*).*$/i, "").trim()
+  // Strip trailing "for frying / to taste / optional" etc.
+  s = s.replace(/\s+(for frying|for baking|for serving|for garnish|to taste|to serve|as needed|if needed|optional)\s*$/i, "").trim()
+
+  const unitKeys = Object.keys(UNIT_MAP).sort((a, b) => b.length - a.length).join("|")
+
+  // Pattern A: "100g cashews" or "2 tbsp olive oil"
+  const mA = s.match(new RegExp(`^([\\d½¼¾⅓⅔⅛]+(?:[\\.\\/ ][\\d]+)?)\\s*(${unitKeys})\\b\\s+(.+)`, "i"))
+  if (mA) {
+    const name = mA[3].trim().toLowerCase().replace(/\s+/g, " ")
+    const unit = UNIT_MAP[mA[2].toLowerCase()]
+    return { qty: parseFraction(mA[1].replace(/ /g, "/")), unit, name, category: categorize(name) }
+  }
+
+  // Pattern B: "2 onions" (number only)
+  const mB = s.match(/^([\d½¼¾⅓⅔⅛]+(?:[\.\/]\d+)?)\s+(.+)/)
+  if (mB) {
+    const name = mB[2].trim().toLowerCase().replace(/\s+/g, " ")
+    return { qty: parseFraction(mB[1]), unit: null, name, category: categorize(name) }
+  }
+
+  // No quantity: "olive oil", "Coconut oil"
+  const name = s.trim().toLowerCase().replace(/\s+/g, " ")
+  return { qty: null, unit: null, name, category: categorize(name) }
+}
+
+interface AggregatedItem { display: string; category: string }
+
+function aggregateIngredients(rawItems: string[]): AggregatedItem[] {
+  const parsed = rawItems.map(parseIngredient).filter(Boolean) as ParsedIngredient[]
+  const map = new Map<string, { qty: number | null; unit: string | null; name: string; category: string }>()
+
+  for (const p of parsed) {
+    const key = `${p.name}||${p.unit ?? "none"}`
+    const ex = map.get(key)
+    if (ex) {
+      if (ex.qty !== null && p.qty !== null) ex.qty += p.qty
+    } else {
+      map.set(key, { qty: p.qty, unit: p.unit, name: p.name, category: p.category })
+    }
+  }
+
+  return Array.from(map.values()).map(g => {
+    let display: string
+    if (g.qty === null) {
+      display = g.name
+    } else if (g.unit) {
+      const noSpace = ["g", "kg", "ml", "l"].includes(g.unit)
+      display = `${formatQty(g.qty)}${noSpace ? "" : " "}${g.unit} ${g.name}`
+    } else {
+      display = `${formatQty(g.qty)} × ${g.name}`
+    }
+    display = display.charAt(0).toUpperCase() + display.slice(1)
+    return { display, category: g.category }
+  }).sort((a, b) => a.display.localeCompare(b.display))
 }
 
 function printWindow(html: string, title: string) {
@@ -354,19 +466,17 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
   }
 
   function buildShoppingList() {
-    const all: string[] = []
+    const allRaw: string[] = []
     for (const r of uniqueRecipes()) {
-      for (const s of r.ingredientSections || []) all.push(...s.items)
+      for (const section of r.ingredientSections || []) allRaw.push(...section.items)
     }
-    const flat = [...all].sort()
-    const grouped: Record<string, string[]> = {}
-    for (const item of all) {
-      const cat = categorize(item)
-      if (!grouped[cat]) grouped[cat] = []
-      grouped[cat].push(item)
+    const items = aggregateIngredients(allRaw)
+    const grouped: Record<string, AggregatedItem[]> = {}
+    for (const item of items) {
+      if (!grouped[item.category]) grouped[item.category] = []
+      grouped[item.category].push(item)
     }
-    for (const cat of Object.keys(grouped)) grouped[cat].sort()
-    return { flat, grouped }
+    return { flat: items, grouped }
   }
 
   // ── Print functions ──
@@ -407,13 +517,13 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
 
   function doPrintShopping(grouped: boolean) {
     const { flat, grouped: groupedData } = buildShoppingList()
-    let html = `<h1>${planName} — Shopping List</h1>`
+    let html = `<h1>${planName} — Shopping List</h1><p style="color:#666;font-size:13px;margin-bottom:8px">${flat.length} items across ${uniqueRecipes().length} recipes</p>`
     if (grouped) {
       html += Object.keys(groupedData).sort().map(cat =>
-        `<h2>${cat}</h2><ul>${groupedData[cat].map(i => `<li>${i}</li>`).join("")}</ul>`
+        `<h2>${cat}</h2><ul>${groupedData[cat].map(i => `<li>${i.display}</li>`).join("")}</ul>`
       ).join("")
     } else {
-      html += `<ul>${flat.map(i => `<li>${i}</li>`).join("")}</ul>`
+      html += `<ul>${flat.map(i => `<li>${i.display}</li>`).join("")}</ul>`
     }
     printWindow(html, `${planName} Shopping List`)
   }
