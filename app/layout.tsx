@@ -11,8 +11,12 @@ import PrefetchRecipes from "@/components/PrefetchRecipes"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Vegan Side Project",
-  description: "Delicious plant-based recipes that will satisfy both you and your vegan partner.",
+  title: {
+    default: "Vegan Side Project",
+    template: "%s | Vegan Side Project",
+  },
+  description:
+    "A collection of plant-based recipes built by a couple — one vegan, one not — looking for food they'd both genuinely love. No ads, no paywalls. Just the good ones.",
   metadataBase: new URL("https://www.vegansideproject.com"),
   openGraph: {
     type: "website",
@@ -20,14 +24,31 @@ export const metadata = {
     url: "https://www.vegansideproject.com",
     siteName: "Vegan Side Project",
     title: "Vegan Side Project",
-    description: "Delicious plant-based recipes that will satisfy both you and your vegan partner.",
+    description:
+      "A collection of plant-based recipes built by a couple — one vegan, one not — looking for food they'd both genuinely love. No ads, no paywalls. Just the good ones.",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Vegan Side Project — plant-based recipes for everyone",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Vegan Side Project",
-    description: "Delicious plant-based recipes that will satisfy both you and your vegan partner.",
+    description:
+      "A collection of plant-based recipes built by a couple — one vegan, one not — looking for food they'd both genuinely love.",
   },
-  generator: "v0.app",
+  keywords: [
+    "vegan recipes",
+    "plant-based recipes",
+    "vegan cooking",
+    "easy vegan meals",
+    "vegan for beginners",
+    "meat eater vegan recipes",
+  ],
 }
 
 export default function RootLayout({
