@@ -41,6 +41,9 @@ export const metadata = {
     description:
       "A collection of plant-based recipes built by a couple — one vegan, one not — looking for food they'd both genuinely love.",
   },
+  verification: {
+    google: "google9b7a9b8c65348b5a",
+  },
   keywords: [
     "vegan recipes",
     "plant-based recipes",
