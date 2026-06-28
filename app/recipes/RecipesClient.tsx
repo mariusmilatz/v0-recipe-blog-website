@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { Clock, Search, X } from "lucide-react"
+import { Clock, Search, X, Leaf } from "lucide-react"
 import { calculateTotalTime } from "@/lib/time-utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -250,7 +250,8 @@ function RecipeCard({
           }`}
         />
         {isGlutenFree && (
-          <span className="absolute top-2 right-2 bg-green-100 text-green-800 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-green-200">
+          <span className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-[#6a994e] text-[11px] font-semibold px-2 py-1 rounded-full shadow-sm">
+            <Leaf className="h-3 w-3" />
             GF
           </span>
         )}
