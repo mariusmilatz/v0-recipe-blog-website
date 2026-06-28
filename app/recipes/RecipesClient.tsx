@@ -18,6 +18,8 @@ const CATEGORY_MAP: Record<string, string> = {
   Breakfast: "breakfast",
   "Breakfast Dish": "breakfast",
   "Morning Meal": "breakfast",
+  Lunch: "lunch",
+  "Lunch Dish": "lunch",
   Appetizer: "snacks",
   Soup: "sides",
   Salad: "sides",
@@ -163,12 +165,13 @@ export default function RecipesClient({ recipes }: { recipes: any[] }) {
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="mains">Mains</TabsTrigger>
           <TabsTrigger value="sides">Sides</TabsTrigger>
+          <TabsTrigger value="lunch">Lunch</TabsTrigger>
           <TabsTrigger value="desserts">Desserts</TabsTrigger>
           <TabsTrigger value="snacks">Snacks</TabsTrigger>
           <TabsTrigger value="breakfast">Breakfast</TabsTrigger>
         </TabsList>
 
-        {(["all", "mains", "sides", "desserts", "snacks", "breakfast"] as const).map((tab) => {
+        {(["all", "mains", "sides", "lunch", "desserts", "snacks", "breakfast"] as const).map((tab) => {
           const visible =
             tab === "all"
               ? filteredRecipes
