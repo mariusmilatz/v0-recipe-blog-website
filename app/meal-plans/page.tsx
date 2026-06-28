@@ -1,5 +1,7 @@
+// → app/meal-plans/page.tsx
+
 import Link from "next/link"
-import { Calendar, Clock, ChevronRight, Construction } from "lucide-react"
+import { Calendar, Clock, ChevronRight, Construction, CalendarDays } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -71,6 +73,28 @@ export default async function MealPlansPage() {
         <p className="mt-4 text-muted-foreground">
           Take the guesswork out of "what's for dinner" with our curated weekly meal plans.
         </p>
+      </div>
+
+      {/* ── Build Your Own banner ── */}
+      <div className="max-w-3xl mx-auto mb-10">
+        <div className="rounded-xl border bg-gradient-to-r from-[#f8f5f2] to-[#eef4e8] p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <CalendarDays className="h-5 w-5 text-[#6a994e]" />
+              <h2 className="font-semibold text-lg">Build Your Own Plan</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Pick recipes from the library, set how many days you want to cook each week, drag &amp; drop to swap
+              things around — then print a shopping list or the full recipe set.
+            </p>
+          </div>
+          <Button asChild className="bg-[#6a994e] hover:bg-[#5a8540] shrink-0">
+            <Link href="/meal-plans/builder">
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Start Planning
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {!hasMealPlans && (
