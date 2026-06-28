@@ -21,7 +21,7 @@ export default async function Home() {
                   Vegan Food That Actually Tastes Amazing
                 </h1>
                 <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl">
-                  Curated by a vegan and non-vegan couple who spent years finding recipes that truly work for everyone.
+                  A recipe collection built by a couple — one vegan, one not — searching for food they'd both genuinely love. No ads, no paywalls. Just the recipes worth making again and again.
                 </p>
               </div>
               <div className="space-x-4">
@@ -152,10 +152,7 @@ export default async function Home() {
                   Our Journey to Better Vegan Food
                 </h2>
                 <p className="text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  When we started cooking together years ago, we found most vegan recipes disappointing - bland and
-                  uninspiring. As a mixed vegan/non-vegan couple, we needed food we'd both enjoy. After countless
-                  experiments and discoveries, we've collected recipes that truly work. We created this site to share
-                  what we've learned and prove that vegan food can be exciting, flavorful, and satisfying for everyone.
+                  A few years ago, my wife started eating more and more vegan food. Since we usually cooked together, we began looking for recipes that worked for both of us — not compromises, but meals we'd actually look forward to. We had a running joke that every time we found one we loved, it would make the menu of our imaginary little lunch place. Over time the list grew, we got better at cooking without meat, eggs, and dairy, and we started saving everything in notes and PDFs. Eventually there were so many we couldn't keep track — so I built this site. Mainly to stop losing the recipes we loved. If it helps others in a similar situation, that's the whole point.
                 </p>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Button asChild>
