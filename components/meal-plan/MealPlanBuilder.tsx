@@ -98,6 +98,7 @@ const UNIT_MAP: Record<string, string> = {
   head: "head", heads: "head",
   can: "can", cans: "can", tin: "can", tins: "can",
   bunch: "bunch", bunches: "bunch",
+  drizzle: "drizzle",
   stalk: "stalk", stalks: "stalk",
   sprig: "sprig", sprigs: "sprig",
   handful: "handful", handfuls: "handful",
@@ -111,6 +112,8 @@ function isTitleLine(s: string): boolean {
   if (/:\s*$/.test(s)) return true
   if (/^(batter|topping|toppings|sauce|pesto|dressing|marinade|garnish|base|filling|crust|glaze|crumble|pastry)\s*$/i.test(s)) return true
   if (/^(serve with|to serve|to garnish|for the)\b/i.test(s)) return true
+  // Multi-word section headers ending with sub-recipe words
+  if (/\s+(base|compote|batter|crumble|pastry|coulis)$/i.test(s)) return true
   return false
 }
 
@@ -158,7 +161,7 @@ function categorize(name: string): string {
   if (/\b(pasta|rice|noodles?|flour|oats?|rolled oats?|quinoa|couscous|sourdough|bread|breadcrumbs?|crackers?|tortilla|flatbread|pita|naan|wrap|barley|polenta|cornmeal|semolina|bulgur|farro|millet|spelt|buckwheat|tapioca|baking powder|baking soda|bicarbonate)\b/.test(s)) return "Grains & Pasta"
   if (/\b(coconut milk|coconut cream|passata|chopped tomatoes?|diced tomatoes?|plum tomatoes?|kidney beans?|chickpeas?|butter beans?|cannellini beans?|black beans?|borlotti beans?|lentils?|split peas?|baked beans?|vegetable stock|stock cube|vegetable broth|broth|canned chickpea|canned tomato)\b/.test(s)) return "Tins & Jars"
   if (/\b(cashews?|almonds?|walnuts?|pecans?|pine nuts?|pumpkin seeds?|sunflower seeds?|sesame|chia seeds?|flaxseeds?|flax seeds?|hemp seeds?|poppy seeds?|linseed|brazil nuts?|hazelnuts?|pistachios?|macadamia|desiccated coconut|coconut flakes?|shredded coconut|mixed nuts?|mixed seeds?)\b/.test(s)) return "Nuts & Seeds"
-  if (/\b(onion|shallot|leek|spring onion|scallion|chive|tomatoes?|cherry tomatoes?|pepper|capsicum|carrot|potato|sweet potato|yam|spinach|kale|chard|broccoli|cauliflower|zucchini|courgettes?|aubergine|eggplant|mushroom|pumpkin|squash|butternut|lettuce|cabbage|celery|ginger|avocado|coriander|cilantro|parsley|basil|mint|dill|sage|tarragon|rosemary|thyme|lemon|lime|orange|banana|apple|mango|berries|blueberries?|raspberries?|raspberry|strawberr|cherry|peach|plum|apricot|fig|beetroot|beet|fennel|asparagus|artichoke|corn|sweetcorn|peas?|frozen peas?|mangetout|sugar snap|edamame|bean sprout|bok choy|pak choi|cucumber|radish|turnip|swede|parsnip|watercress|rocket|arugula|okra|plantain|pineapple|pomegranate|chilli|chili|green onions?)\b/.test(s)) return "Produce"
+  if (/\b(onion|shallot|leek|spring onions?|scallions?|chive|tomatoes?|cherry tomatoes?|pepper|capsicum|carrot|potato|sweet potato|yam|spinach|kale|chard|broccoli|cauliflower|zucchini|courgettes?|aubergine|eggplant|mushrooms?|pumpkin|squash|butternut|lettuce|cabbage|celery|ginger|avocado|coriander|cilantro|parsley|basil|mint|dill|sage|tarragon|rosemary|thyme|lemon|lime|orange|banana|apple|mango|berries|blueberries?|raspberries?|raspberry|strawberr|cherry|peach|plum|apricot|fig|beetroot|beet|fennel|asparagus|artichoke|corn|sweetcorn|peas?|frozen peas?|mangetout|sugar snap|edamame|bean sprout|bok choy|pak choi|cucumber|radish|turnip|swede|parsnip|watercress|rocket|arugula|okra|plantain|pineapple|pomegranate|chillies?|chili|chilli|green onions?)\b/.test(s)) return "Produce"
   return "Other"
 }
 
@@ -167,12 +170,13 @@ interface ParsedIngredient { qty: number | null; unit: string | null; name: stri
 function normName(s: string): string {
   return s.trim()
     // Strip one or more consecutive leading descriptors / size qualifiers
-    .replace(/^(?:(?:large|medium|small|big|some|a few|fresh|dried|flaky|whole|chopped|frozen|sliced|diced|minced|grated|roasted|toasted|cooked)\s+)+/gi, "")
+    .replace(/^(?:(?:large|medium|small|big|ripe|some|a few|fresh|dried|flaky|whole|chopped|frozen|sliced|diced|minced|grated|roasted|toasted|cooked|melted|raw|organic|heaped|heaping)\s+)+/gi, "")
     // Strip orphaned unit word at start when number was omitted (e.g. "Tbsp oat milk")
-    .replace(/^(?:tablespoons?|teaspoons?|tbsp|tsp|cups?|grams?|kg|ml)\s+/gi, "")
+    .replace(/^(?:tablespoons?|teaspoons?|tbsp|tsp|cups?|grams?|kg|ml|handfuls?|pinches?|bunches?|stalks?|sprigs?|cans?|tins?|cloves?|heads?|sheets?)\s+/gi, "")
     .replace(/^-?\d*\s*[-\u2013]?\s*(?:inch|cm|mm)\s+/i, "")
-    .replace(/^(?:knob\s+of\s+|piece\s+of\s+|thumb[-\s]*sized?\s+(?:piece\s+(?:of\s+)?)?)/i, "")
+    .replace(/^(?:knob\s+of\s+|piece\s+of\s+|chunk\s+of\s+|chunk\s+|thumb[-\s]*sized?\s+(?:piece\s+(?:of\s+)?)?)/i, "")
     .toLowerCase()
+    .replace(/\s+(?:slices?|strips?)$/i, "")  // "banana slices" → "banana"
     .replace(/\bchili\b/g, "chilli")   // normalise spelling for aggregation
     .replace(/\s+/g, " ")
     .trim()
@@ -204,6 +208,9 @@ function parseIngredient(raw: string): ParsedIngredient | null {
   s = s.replace(/^a?\s*drizzle\s+(?:of\s+)?/i, "1 drizzle ")
   s = s.replace(/^a?\s*couple\s+(?:of\s+)?/i, "2 ")
   s = s.replace(/^juice\s+(?:of\s+)?/i, "")
+
+  // Strip "/alternative" options: "peas/edamame beans" → "peas"
+  s = s.replace(/([a-z])\s*\/.*$/i, "$1").trim()
 
   // Strip size descriptors: "1-inch knob ginger", "thumb-sized piece ginger"
   s = s.replace(/^\d+\s*[-\u2013]\s*(?:inch|cm|mm)\s+(?:(?:piece|knob)\s+(?:of\s+)?)?/i, "")
@@ -286,7 +293,10 @@ function aggregateIngredients(rawItems: string[]): AggregatedItem[] {
       map.set(key, { qty: p.qty, unit: p.unit, name: p.name, category: p.category })
     }
   }
-  return Array.from(map.values()).map(g => {
+  return Array.from(map.values())
+    // Drop unrecognised items with no quantity — these are usually sub-recipe names or noise
+    .filter(g => !(g.category === "Other" && g.qty === null && g.unit === null))
+    .map(g => {
     let display: string
     if (g.qty === null) {
       display = g.name
