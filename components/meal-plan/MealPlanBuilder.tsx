@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import {
   ChevronDown, ChevronUp, Search, X, Plus, Calendar,
   Printer, ShoppingCart, Save, Bookmark, BookmarkCheck,
@@ -393,7 +394,9 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
     [slots]
   )
 
-  // ── Load user data ──
+  const searchParams = useSearchParams()
+
+  // ── Load user data + auto-load plan from ?load= query param ──
   useEffect(() => {
     if (!user) return
     supabase
@@ -408,7 +411,12 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
       .select("id, name")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .then(({ data }) => { if (data) setSavedPlans(data) })
+      .then(({ data }) => {
+        if (data) setSavedPlans(data)
+        // Auto-load if ?load=<id> is present in the URL
+        const loadId = searchParams.get("load")
+        if (loadId) loadPlan(loadId)
+      })
   }, [user])
 
   // ── Library filtering ──
@@ -540,16 +548,25 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
     if (!user) { toast({ title: "Sign in to save plans" }); return }
     setSavingPlan(true)
     try {
+      // Ensure the browser Supabase client has an active session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast({ title: "Session expired", description: "Please sign out and sign in again.", variant: "destructive" })
+        setSavingPlan(false)
+        return
+      }
       const { data, error } = await supabase
         .from("meal_plans")
-        .insert({ user_id: user.id, name: planName, week_start_day: weekStart, cook_preferences: cookPrefs, slots })
+        .insert({ user_id: session.user.id, name: planName, week_start_day: weekStart, cook_preferences: cookPrefs, slots })
         .select("id, name")
         .single()
       if (error) throw error
       setSavedPlans(prev => [data, ...prev])
       toast({ title: "Plan saved!", description: `"${planName}" saved to your profile.` })
-    } catch {
-      toast({ title: "Error saving plan", variant: "destructive" })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? "Unknown error"
+      console.error("savePlan error:", err)
+      toast({ title: "Error saving plan", description: msg, variant: "destructive" })
     } finally {
       setSavingPlan(false)
     }
