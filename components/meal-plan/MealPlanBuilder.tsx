@@ -107,19 +107,29 @@ const UNIT_MAP: Record<string, string> = {
 
 const WATER_RE = /^(water|boiling water|hot water|cold water|warm water|ice water|salted water)\s*$/i
 
-// Section titles that sneak into ingredient items — filter these out entirely
-const TITLE_RE = /:\s*$|^(batter|topping|toppings?|sauce|pesto|dressing|marinade|garnish|base|filling|crust|glaze|crumble|pastry|for the|serve with|to serve|to garnish)\s*:?\s*$/i
+function isTitleLine(s: string): boolean {
+  if (/:\s*$/.test(s)) return true
+  if (/^(batter|topping|toppings|sauce|pesto|dressing|marinade|garnish|base|filling|crust|glaze|crumble|pastry)\s*$/i.test(s)) return true
+  if (/^(serve with|to serve|to garnish|for the)\b/i.test(s)) return true
+  return false
+}
 
 function parseFraction(s: string): number {
-  const uni: Record<string, number> = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125 }
+  const uni: Record<string, number> = { "\u00bd": 0.5, "\u00bc": 0.25, "\u00be": 0.75, "\u2153": 1/3, "\u2154": 2/3, "\u215b": 0.125 }
   if (uni[s] !== undefined) return uni[s]
   if (s.includes("/")) { const [n, d] = s.split("/"); return parseFloat(n) / parseFloat(d) }
   return parseFloat(s)
 }
 
+function parseQuantityToken(token: string): number {
+  const rangeMatch = token.match(/^([\u00bd\u00bc\u00be\u2153\u2154\u215b\d./]+)[\u2013\-]([\u00bd\u00bc\u00be\u2153\u2154\u215b\d./]+)$/)
+  if (rangeMatch) return Math.max(parseFraction(rangeMatch[1]), parseFraction(rangeMatch[2]))
+  return parseFraction(token)
+}
+
 function formatQty(n: number): string {
   if (Number.isInteger(n)) return String(n)
-  const fracs: [number, string][] = [[0.5,"½"],[0.25,"¼"],[0.75,"¾"],[1/3,"⅓"],[2/3,"⅔"],[0.125,"⅛"]]
+  const fracs: [number, string][] = [[0.5,"\u00bd"],[0.25,"\u00bc"],[0.75,"\u00be"],[1/3,"\u2153"],[2/3,"\u2154"],[0.125,"\u215b"]]
   const exact = fracs.find(([v]) => Math.abs(n - v) < 0.05)
   if (exact) return exact[1]
   const whole = Math.floor(n)
@@ -132,16 +142,21 @@ function formatQty(n: number): string {
 
 function categorize(name: string): string {
   const s = name.toLowerCase()
-  // Check most specific patterns first to avoid misclassification
-  if (/\b(soy sauce|tamari|miso|vinegar|balsamic|tahini|peanut butter|almond butter|cashew butter|maple syrup|agave|agave syrup|sugar|brown sugar|caster sugar|icing sugar|mustard|dijon mustard|ketchup|sriracha|hot sauce|chilli sauce|nutritional yeast|hoisin|tomato paste|tomato pur[eé]e|sun-dried tomato|lemon juice|lime juice|orange juice|tamarind|mirin|coconut aminos|liquid smoke|yeast extract|marmite|pomegranate molasse|date syrup|black mustard seed|mustard seed)\b/.test(s)) return "Sauces & Condiments"
-  if (/\b(salt|kala namak|black salt|flaky salt|sea salt|pepper|black pepper|white pepper|cumin|paprika|smoked paprika|turmeric|cardamom|cinnamon|oregano|thyme|rosemary|bay leaf|bay leaves|curry powder|garam masala|cayenne|chilli flake|chili flake|red pepper flake|red chilli flake|allspice|nutmeg|cloves|star anise|coriander seed|fennel seed|fenugreek|fenugreek seed|asafoetida|sumac|harissa|ras el hanout|five spice|mixed spice|mixed herb|vanilla|saffron|chilli powder|chili powder|ground cumin|ground coriander|ground turmeric|ground cinnamon|ground cardamom|ground ginger|onion powder|garlic powder|celery salt|nigella seed|nigella|seasoning|spice blend)\b/.test(s)) return "Spices & Seasonings"
-  if (/\b(almond milk|oat milk|soy milk|rice milk|cashew milk|hemp milk|plant.based milk|plant milk|vegan milk|coconut yogh|oat yogh|soy yogh|vegan yogh|dairy.free yogh|yogh|vegan butter|vegan cheese|plant.based cream|oat cream|soy cream|cashew cream|vegan cream|dairy.free cream|cream cheese)\b/.test(s) || s === "milk" || s === "plant-based milk" || s === "yogurt" || s === "yoghurt") return "Plant-Based Dairy"
-  if (/\b(tofu|tempeh|seitan|tvp|textured vegetable protein)\b/.test(s)) return "Plant-Based Protein"
-  if (/\boil\b/.test(s)) return "Oils"
-  if (/\b(coconut milk|coconut cream|passata|tomato passata|chopped tomato|diced tomato|plum tomato|kidney bean|chickpea|butter bean|cannellini|black bean|borlotti|lentil|split pea|baked bean|vegetable stock|stock cube|vegetable broth|broth|harissa paste)\b/.test(s)) return "Tins & Jars"
-  if (/\b(pasta|rice|noodle|flour|chickpea flour|gram flour|rice flour|tapioca|oat|oats|rolled oat|quinoa|couscous|sourdough|bread|breadcrumb|cracker|tortilla|flatbread|pita|naan|wrap|barley|polenta|cornmeal|semolina|bulgur|farro|millet|spelt|buckwheat|baking powder|baking soda|bicarbonate)\b/.test(s)) return "Grains & Pasta"
-  if (/\b(cashews?|almonds?|walnuts?|pecans?|pine nut|pine nuts|pumpkin seed|sunflower seed|sesame seed|sesame|chia seed|flaxseed|flax seed|hemp seed|poppy seed|linseed|brazil nut|hazelnuts?|pistachio|macadamia|desiccated coconut|coconut flake|shredded coconut|mixed nut|mixed seed|mixed nuts|mixed seeds)\b/.test(s)) return "Nuts & Seeds"
-  if (/\b(onion|shallot|garlic|leek|spring onion|scallion|chive|tomato|cherry tomato|sun-dried tomato|pepper|capsicum|carrot|potato|sweet potato|yam|spinach|kale|chard|broccoli|cauliflower|zucchini|courgette|aubergine|eggplant|mushroom|pumpkin|squash|butternut|lettuce|cabbage|celery|ginger|red chilli|green chilli|chilli|chili|bird.?s eye|avocado|coriander|cilantro|parsley|basil|mint|dill|sage|tarragon|rosemary|thyme|bay|lemon|lime|orange|banana|apple|mango|berr|blueberr|raspberry|strawberr|cherry|peach|plum|apricot|fig|date|beetroot|beet|fennel|asparagus|artichoke|corn|sweetcorn|peas?|frozen pea|mangetout|sugar snap|edamame|bean sprout|bok choy|pak choi|cucumber|radish|turnip|swede|parsnip|celeriac|kohlrabi|watercress|rocket|arugula|sorrel|okra|plantain|pineapple|papaya|pomegranate|passion fruit|kiwi|grape|melon|watermelon|courgetti)\b/.test(s)) return "Produce"
+  // Specific compound terms — checked first to prevent partial mismatches below
+  if (/\bchilli flakes?\b|\bchili flakes?\b|\bred pepper flakes?\b|\bchilli powder\b|\bchili powder\b|\bdried chilli\b|\bdried chili\b/.test(s)) return "Spices & Seasonings"
+  if (/\bgarlic\b/.test(s)) return "Produce"
+  if (/\b(lemon|lime|orange)\s+juice\b/.test(s)) return "Sauces & Condiments"
+  if (/\b(chickpea|gram|rice|tapioca|spelt|oat|coconut|almond|cornstarch|cornflour)\s+flour\b|\bcornstarch\b|\bcornflour\b/.test(s)) return "Grains & Pasta"
+  if (/\bcoconut\s+yogh/.test(s)) return "Plant-Based Dairy"
+  if (/\b(soy sauce|tamari|miso|vinegar|balsamic|tahini|peanut butter|almond butter|cashew butter|maple syrup|agave|agave syrup|sugar|brown sugar|caster sugar|icing sugar|coconut sugar|muscovado|golden syrup|mustard|dijon mustard|ketchup|sriracha|hot sauce|chilli sauce|nutritional yeast|hoisin|tomato paste|tomato pur[\u00e9e]e|sun-dried tomatoes?|tamarind|mirin|coconut aminos|liquid smoke|yeast extract|marmite|pomegranate molasses|date syrup|liquid aminos|bragg|black mustard seeds?|mustard seeds?)\b/.test(s)) return "Sauces & Condiments"
+  if (/\b(salt|kala namak|black salt|flaky salt|sea salt|pepper|black pepper|white pepper|cumin|paprika|smoked paprika|turmeric|cardamom|cinnamon|ground cinnamon|oregano|thyme|rosemary|bay leaves?|bay leaf|curry powder|garam masala|cayenne|allspice|nutmeg|whole cloves?|ground cloves?|star anise|coriander seeds?|fennel seeds?|fenugreek|asafoetida|sumac|harissa|ras el hanout|five spice|mixed spice|mixed herbs?|vanilla|saffron|onion powder|garlic powder|celery salt|nigella seeds?|nigella|seasoning|spice blend|ground cumin|ground coriander|ground turmeric|ground cardamom|ground ginger|lemongrass|yellow curry|red chilli flakes?)\b/.test(s)) return "Spices & Seasonings"
+  if (/\b(almond milk|oat milk|soy milk|rice milk|cashew milk|hemp milk|plant.based milk|plant milk|vegan milk|oat yogh|soy yogh|vegan yogh|dairy.free yogh|vegan butter|vegan cheese|plant.based cream|oat cream|soy cream|cashew cream|vegan cream|cream cheese)\b/.test(s) || /^(milk|yogurt|yoghurt|soy yogurt|plant.based milk)$/.test(s)) return "Plant-Based Dairy"
+  if (/\b(tofu|tempeh|seitan|tvp)\b/.test(s)) return "Plant-Based Protein"
+  if (/\boil\b/.test(s) && !/marinated|packed in oil|in oil|with oil/.test(s)) return "Oils"
+  if (/\b(pasta|rice|noodles?|flour|oats?|rolled oats?|quinoa|couscous|sourdough|bread|breadcrumbs?|crackers?|tortilla|flatbread|pita|naan|wrap|barley|polenta|cornmeal|semolina|bulgur|farro|millet|spelt|buckwheat|tapioca|baking powder|baking soda|bicarbonate)\b/.test(s)) return "Grains & Pasta"
+  if (/\b(coconut milk|coconut cream|passata|chopped tomatoes?|diced tomatoes?|plum tomatoes?|kidney beans?|chickpeas?|butter beans?|cannellini beans?|black beans?|borlotti beans?|lentils?|split peas?|baked beans?|vegetable stock|stock cube|vegetable broth|broth|canned chickpea|canned tomato)\b/.test(s)) return "Tins & Jars"
+  if (/\b(cashews?|almonds?|walnuts?|pecans?|pine nuts?|pumpkin seeds?|sunflower seeds?|sesame seeds?|sesame|chia seeds?|flaxseeds?|flax seeds?|hemp seeds?|poppy seeds?|linseed|brazil nuts?|hazelnuts?|pistachios?|macadamia|desiccated coconut|coconut flakes?|shredded coconut|mixed nuts?|mixed seeds?)\b/.test(s)) return "Nuts & Seeds"
+  if (/\b(onion|shallot|leek|spring onion|scallion|chive|tomato|cherry tomatoes?|tomatoes?|pepper|capsicum|carrot|potato|sweet potato|yam|spinach|kale|chard|broccoli|cauliflower|zucchini|courgette|aubergine|eggplant|mushroom|pumpkin|squash|butternut|lettuce|cabbage|celery|ginger|avocado|coriander|cilantro|parsley|basil|mint|dill|sage|tarragon|rosemary|thyme|lemon|lime|orange|banana|apple|mango|berries|blueberr|raspberry|strawberr|cherry|peach|plum|apricot|fig|beetroot|beet|fennel|asparagus|artichoke|corn|sweetcorn|peas?|frozen peas?|mangetout|sugar snap|edamame|bean sprout|bok choy|pak choi|cucumber|radish|turnip|swede|parsnip|watercress|rocket|arugula|okra|plantain|pineapple|pomegranate|chilli|chili|green onion)\b/.test(s)) return "Produce"
   return "Other"
 }
 
@@ -150,18 +165,17 @@ interface ParsedIngredient { qty: number | null; unit: string | null; name: stri
 function normName(s: string): string {
   return s.trim().toLowerCase()
     .replace(/\s+/g, " ")
-    .replace(/^(large|medium|small|big)\s+/i, "")  // strip size prefix
-    .replace(/\s+of\s+/g, " ")                       // "handful of X" → "handful X" (then unit strips it)
+    .replace(/^(large|medium|small|big|fresh|some|a few)\s+/i, "")
     .trim()
 }
 
 function parseIngredient(raw: string): ParsedIngredient | null {
-  // Strip leading bullet / dash / whitespace
-  let s = raw.replace(/^[-–—•*]\s*/, "").trim()
+  let s = raw.replace(/^[-\u2013\u2014\u2022*]\s*/, "").trim()
   if (!s || s.length < 2) return null
+  if (isTitleLine(s)) return null
 
-  // Filter section title lines (end with ":", or known title words)
-  if (TITLE_RE.test(s)) return null
+  // Strip em-dash notes: "1 tsp X \u2014 this is key" -> "1 tsp X"
+  s = s.replace(/\s*[\u2014\u2013]\s*.+$/, "").trim()
 
   // Remove parenthetical notes
   s = s.replace(/\s*\([^)]*\)/g, "").trim()
@@ -169,67 +183,66 @@ function parseIngredient(raw: string): ParsedIngredient | null {
   // Strip trailing comma
   s = s.replace(/,\s*$/, "").trim()
 
-  // Handle "N × something" (Notion count format) — strip the "N ×" and parse the rest
-  s = s.replace(/^\d+\s*[×x]\s*/, "").trim()
+  if (!s || isTitleLine(s)) return null
 
-  // Normalise vague quantity phrases at the start
+  // Strip "N \u00d7 something" count prefix
+  s = s.replace(/^\d+\s*[\u00d7x]\s*/, "").trim()
+
+  // Normalise vague quantity phrases
   s = s.replace(/^a\s+pinch\s+(?:of\s+)?/i, "1 pinch ")
   s = s.replace(/^pinch\s+(?:of\s+)?/i, "1 pinch ")
   s = s.replace(/^a?\s*handful\s+(?:of\s+)?/i, "1 handful ")
   s = s.replace(/^a?\s*drizzle\s+(?:of\s+)?/i, "1 drizzle ")
   s = s.replace(/^a?\s*couple\s+(?:of\s+)?/i, "2 ")
-  s = s.replace(/^a\s+few\s+(?:of\s+)?/i, "")
+  s = s.replace(/^juice\s+(?:of\s+)?/i, "")
 
   // Strip trailing descriptors after comma
-  s = s.replace(/,\s*(?:roughly|finely|thinly|coarsely|freshly|lightly|generously)?\s*(?:chopped|diced|sliced|minced|grated|crushed|mashed|roasted|toasted|soaked|drained|rinsed|peeled|deseeded|halved|quartered|juiced|zested|melted|softened|crumbled|trimmed|shredded|cubed|roughly broken|cut into\b.*).*$/i, "").trim()
+  s = s.replace(/,\s*(?:roughly|finely|thinly|coarsely|freshly|lightly|generously|gently)?\s*(?:chopped|diced|sliced|minced|grated|crushed|mashed|roasted|toasted|soaked|drained|rinsed|peeled|deseeded|halved|quartered|juiced|zested|melted|softened|crumbled|trimmed|shredded|cubed|defrosted|thawed|marinated|pickled|blanched|roughly broken|cut into\b.*).*$/i, "").trim()
 
   // Strip trailing context phrases
-  s = s.replace(/\s+(?:for frying|for baking|for serving|for garnish|to taste|to serve|as needed|if needed|optional|defrosted)\s*$/i, "").trim()
+  s = s.replace(/\s+(?:for frying|for baking|for serving|for garnish|to taste|to serve|as needed|if needed|optional|defrosted|thawed|or more|or less|or to taste|include the liquid|do not strain)\s*$/i, "").trim()
 
-  // Filter water (anywhere in the string after stripping)
   if (WATER_RE.test(s)) return null
 
   const unitKeys = Object.keys(UNIT_MAP).sort((a, b) => b.length - a.length).join("|")
+  const QTY = "[\\d\u00bd\u00bc\u00be\u2153\u2154\u215b]+(?:[\u2013\-][\d\u00bd\u00bc\u00be\u2153\u2154\u215b]+)?(?:[./][\d]+)?"
 
-  // Pattern A: number + unit + name  ("100g cashews", "2 tbsp olive oil", "400ml coconut milk")
-  const mA = s.match(new RegExp(`^([\\d½¼¾⅓⅔⅛]+(?:[\\./ ][\\d]+)?)\\s*(${unitKeys})\\b\\s+(.+)`, "i"))
+  // Pattern A: qty + unit + name
+  const mA = s.match(new RegExp(`^(${QTY})\\s*(${unitKeys})\\b\\s+(.+)`, "i"))
   if (mA) {
     const name = normName(mA[3])
     const unit = UNIT_MAP[mA[2].toLowerCase()]
-    if (WATER_RE.test(name)) return null
-    if (TITLE_RE.test(name)) return null
-    return { qty: parseFraction(mA[1].replace(/ /g, "/")), unit, name, category: categorize(name) }
+    if (!name || WATER_RE.test(name) || isTitleLine(name)) return null
+    return { qty: parseQuantityToken(mA[1]), unit, name, category: categorize(name) }
   }
 
-  // Pattern B: number only ("2 onions", "3 cloves garlic")
-  const mB = s.match(/^([\d½¼¾⅓⅔⅛]+(?:[./]\d+)?)\s+(.+)/)
+  // Pattern B: qty only
+  const mB = s.match(new RegExp(`^(${QTY})\\s+(.+)`))
   if (mB) {
-    // If name still starts with a unit word (e.g. "× 400g can"), re-run Pattern A on remaining
     const rest = mB[2].trim()
-    const mReparse = rest.match(new RegExp(`^([\\d½¼¾⅓⅔⅛]+(?:[\\./ ][\\d]+)?)\\s*(${unitKeys})\\b\\s+(.+)`, "i"))
-    if (mReparse) {
-      const name = normName(mReparse[3])
-      const unit = UNIT_MAP[mReparse[2].toLowerCase()]
-      if (WATER_RE.test(name) || TITLE_RE.test(name)) return null
-      return { qty: parseFraction(mReparse[1]), unit, name, category: categorize(name) }
+    const mR = rest.match(new RegExp(`^(${QTY})\\s*(${unitKeys})\\b\\s+(.+)`, "i"))
+    if (mR) {
+      const name = normName(mR[3])
+      const unit = UNIT_MAP[mR[2].toLowerCase()]
+      if (!name || WATER_RE.test(name) || isTitleLine(name)) return null
+      return { qty: parseQuantityToken(mR[1]), unit, name, category: categorize(name) }
     }
     const name = normName(rest)
-    if (WATER_RE.test(name) || TITLE_RE.test(name)) return null
-    return { qty: parseFraction(mB[1]), unit: null, name, category: categorize(name) }
+    if (!name || WATER_RE.test(name) || isTitleLine(name)) return null
+    return { qty: parseQuantityToken(mB[1]), unit: null, name, category: categorize(name) }
   }
 
-  // Pattern C: unit word at start without number ("handful coriander", "handful of coriander")
+  // Pattern C: unit word at start, no number
   const mC = s.match(new RegExp(`^(${unitKeys})\\s+(?:of\\s+)?(.+)`, "i"))
   if (mC) {
     const unit = UNIT_MAP[mC[1].toLowerCase()]
     const name = normName(mC[2])
-    if (WATER_RE.test(name) || TITLE_RE.test(name)) return null
+    if (!name || WATER_RE.test(name) || isTitleLine(name)) return null
     return { qty: null, unit, name, category: categorize(name) }
   }
 
-  // No quantity
   const name = normName(s)
-  if (!name || WATER_RE.test(name) || TITLE_RE.test(name)) return null
+  if (!name || WATER_RE.test(name) || isTitleLine(name)) return null
   return { qty: null, unit: null, name, category: categorize(name) }
 }
 
@@ -238,18 +251,15 @@ interface AggregatedItem { display: string; category: string }
 function aggregateIngredients(rawItems: string[]): AggregatedItem[] {
   const parsed = rawItems.map(parseIngredient).filter(Boolean) as ParsedIngredient[]
   const map = new Map<string, { qty: number | null; unit: string | null; name: string; category: string }>()
-
   for (const p of parsed) {
     const key = `${p.name}||${p.unit ?? "none"}`
     const ex = map.get(key)
     if (ex) {
       if (ex.qty !== null && p.qty !== null) ex.qty += p.qty
-      // if one has qty and other doesn't, keep the one with qty (already stored)
     } else {
       map.set(key, { qty: p.qty, unit: p.unit, name: p.name, category: p.category })
     }
   }
-
   return Array.from(map.values()).map(g => {
     let display: string
     if (g.qty === null) {
