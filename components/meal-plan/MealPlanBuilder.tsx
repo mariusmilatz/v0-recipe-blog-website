@@ -166,10 +166,14 @@ interface ParsedIngredient { qty: number | null; unit: string | null; name: stri
 
 function normName(s: string): string {
   return s.trim()
-    .replace(/^(?:(?:large|medium|small|big|some|a few|fresh|chopped|frozen|sliced|diced|minced|grated|roasted|toasted|cooked)\s+)+/gi, "")
+    // Strip one or more consecutive leading descriptors / size qualifiers
+    .replace(/^(?:(?:large|medium|small|big|some|a few|fresh|dried|flaky|whole|chopped|frozen|sliced|diced|minced|grated|roasted|toasted|cooked)\s+)+/gi, "")
+    // Strip orphaned unit word at start when number was omitted (e.g. "Tbsp oat milk")
+    .replace(/^(?:tablespoons?|teaspoons?|tbsp|tsp|cups?|grams?|kg|ml)\s+/gi, "")
     .replace(/^-?\d*\s*[-\u2013]?\s*(?:inch|cm|mm)\s+/i, "")
     .replace(/^(?:knob\s+of\s+|piece\s+of\s+|thumb[-\s]*sized?\s+(?:piece\s+(?:of\s+)?)?)/i, "")
     .toLowerCase()
+    .replace(/\bchili\b/g, "chilli")   // normalise spelling for aggregation
     .replace(/\s+/g, " ")
     .trim()
 }
@@ -239,6 +243,15 @@ function parseIngredient(raw: string): ParsedIngredient | null {
       const unit = UNIT_MAP[mR[2].toLowerCase()]
       if (!name || /^\d+$/.test(name) || WATER_RE.test(name) || isTitleLine(name)) return null
       return { qty: parseQuantityToken(mR[1]), unit, name, category: categorize(name) }
+    }
+    // Detect "ingredient unitword" suffix: "garlic cloves" → unit=clove, name=garlic
+    const mSuffix = rest.match(new RegExp(`^(.+?)\\s+(${unitKeys})$`, "i"))
+    if (mSuffix && UNIT_MAP[mSuffix[2].toLowerCase()]) {
+      const unit = UNIT_MAP[mSuffix[2].toLowerCase()]
+      const name2 = normName(mSuffix[1])
+      if (name2 && !/^\d+$/.test(name2) && !WATER_RE.test(name2) && !isTitleLine(name2)) {
+        return { qty: parseQuantityToken(mB[1]), unit, name: name2, category: categorize(name2) }
+      }
     }
     const name = normName(rest)
     if (!name || /^\d+$/.test(name) || WATER_RE.test(name) || isTitleLine(name)) return null
