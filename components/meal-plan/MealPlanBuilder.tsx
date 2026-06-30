@@ -560,8 +560,9 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
 
     // Build a mini card ghost element for the drag image
     const ghost = document.createElement("div")
+    const scrollY = window.scrollY || document.documentElement.scrollTop
     ghost.style.cssText = [
-      "position:fixed", "top:-1000px", "left:-1000px", "width:120px",
+      "position:absolute", `top:${scrollY + 9999}px`, "left:-9999px", "width:120px",
       "border-radius:8px", "overflow:hidden", "background:white",
       "box-shadow:0 4px 16px rgba(0,0,0,0.18)", "border:1px solid #e5e7eb",
       "pointer-events:none",
@@ -980,6 +981,7 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
                             src={entry.recipe.image || "/placeholder.svg"}
                             alt={entry.recipe.title}
                             className="w-full h-14 object-cover"
+                            draggable={false}
                           />
                           {entry.isReheat && (
                             <span className="absolute top-0.5 left-0.5 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded font-semibold">
