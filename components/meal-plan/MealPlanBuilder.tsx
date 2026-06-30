@@ -553,7 +553,41 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
   }
 
   // ── Drag & Drop ──
-  function handleDragStart(day: DayOfWeek, meal: MealType) { setDragSrc({ day, meal }) }
+  function handleDragStart(e: React.DragEvent, day: DayOfWeek, meal: MealType) {
+    setDragSrc({ day, meal })
+    const entry = slots[day][meal]
+    if (!entry) return
+
+    // Build a mini card ghost element for the drag image
+    const ghost = document.createElement("div")
+    ghost.style.cssText = [
+      "position:fixed", "top:-1000px", "left:-1000px", "width:120px",
+      "border-radius:8px", "overflow:hidden", "background:white",
+      "box-shadow:0 4px 16px rgba(0,0,0,0.18)", "border:1px solid #e5e7eb",
+      "pointer-events:none",
+    ].join(";")
+
+    const img = document.createElement("img")
+    img.src = entry.recipe.image || "/placeholder.svg"
+    img.style.cssText = "width:100%;height:72px;object-fit:cover;display:block;"
+
+    const label = document.createElement("div")
+    label.style.cssText = [
+      "padding:5px 7px", "font-size:10px", "font-weight:600",
+      "line-height:1.3", "color:#1a1a1a",
+      "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+      "display:-webkit-box", "-webkit-line-clamp:2", "-webkit-box-orient:vertical",
+      "overflow:hidden",
+    ].join(";")
+    label.textContent = entry.recipe.title
+
+    ghost.appendChild(img)
+    ghost.appendChild(label)
+    document.body.appendChild(ghost)
+    e.dataTransfer.setDragImage(ghost, 60, 36)
+    // Remove after the browser captures the drag image (next microtask)
+    setTimeout(() => { if (ghost.parentNode) ghost.parentNode.removeChild(ghost) }, 0)
+  }
 
   function handleDragOver(e: React.DragEvent, day: DayOfWeek, meal: MealType) {
     e.preventDefault()
@@ -937,7 +971,7 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
                     {entry ? (
                       <div
                         draggable
-                        onDragStart={() => handleDragStart(day, meal)}
+                        onDragStart={(e) => handleDragStart(e, day, meal)}
                         onDragEnd={handleDragEnd}
                         className="rounded bg-white border shadow-sm h-full cursor-grab active:cursor-grabbing overflow-hidden"
                       >
