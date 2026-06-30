@@ -382,6 +382,17 @@ ${html}
   w.document.close()
 }
 
+// ─── Recipe cache (module-level, survives re-renders) ────────────────────────
+
+const recipeCache = new Map<string, RecipeFull>()
+
+async function fetchAndCache(slug: string): Promise<RecipeFull | null> {
+  if (recipeCache.has(slug)) return recipeCache.get(slug)!
+  const full = await fetchRecipeBySlug(slug) as RecipeFull | null
+  if (full) recipeCache.set(slug, full)
+  return full
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] }) {
@@ -478,11 +489,32 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
       .slice(0, 5)
   }, [libSearch, recipes])
 
+  // ── Prefetch recipe into cache on hover ──
+  function prefetchRecipe(slug: string) {
+    if (!recipeCache.has(slug)) fetchAndCache(slug).catch(() => {})
+  }
+
   // ── Add to plan ──
   async function addToSlot(recipe: RecipeSnippet) {
+    // Check cache first — if hit, this is near-instant
+    if (recipeCache.has(recipe.slug)) {
+      const full = recipeCache.get(recipe.slug)!
+      const meal = autoMealType(recipe)
+      let targetDay = firstEmptyDay(slots, days, meal, cookPrefs[meal])
+      if (!targetDay) {
+        for (const m of MEAL_TYPES) {
+          targetDay = firstEmptyDay(slots, days, m, cookPrefs[m])
+          if (targetDay) break
+        }
+      }
+      if (!targetDay) { toast({ title: "All slots are filled", description: "Remove a recipe to make space." }); return }
+      const targetMeal = slots[targetDay][meal] === null ? meal : (MEAL_TYPES.find(m => !slots[targetDay!][m]) ?? meal)
+      setSlots(prev => ({ ...prev, [targetDay!]: { ...prev[targetDay!], [targetMeal]: { recipe: full, isReheat: false } } }))
+      return
+    }
     setLoadingSlug(recipe.slug)
     try {
-      const full = await fetchRecipeBySlug(recipe.slug) as RecipeFull
+      const full = await fetchAndCache(recipe.slug)
       if (!full) { setLoadingSlug(null); return }
 
       const meal = autoMealType(recipe)
@@ -820,7 +852,7 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
             {/* Recipe cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-72 overflow-y-auto pr-1">
               {filteredRecipes.map(recipe => (
-                <div key={recipe.id} className="border rounded-lg overflow-hidden bg-card flex flex-col">
+                <div key={recipe.id} className="border rounded-lg overflow-hidden bg-card flex flex-col" onMouseEnter={() => prefetchRecipe(recipe.slug)} onFocus={() => prefetchRecipe(recipe.slug)}>
                   <div className="relative">
                     <img src={recipe.image || "/placeholder.svg"} alt={recipe.title} className="w-full h-20 object-cover" />
                     <button
