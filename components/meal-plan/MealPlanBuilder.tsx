@@ -106,6 +106,7 @@ const UNIT_MAP: Record<string, string> = {
   handful: "handful", handfuls: "handful",
   pinch: "pinch", pinches: "pinch",
   sheet: "sheet", sheets: "sheet",
+  pack: "pack", packs: "pack",
 }
 
 const WATER_RE = /^(water|boiling water|hot water|cold water|warm water|ice water|salted water)\s*$/i
@@ -115,7 +116,7 @@ function isTitleLine(s: string): boolean {
   if (/^(batter|topping|toppings|sauce|pesto|dressing|marinade|garnish|base|filling|crust|glaze|crumble|pastry)\s*$/i.test(s)) return true
   if (/^(serve with|to serve|to garnish|for the)\b/i.test(s)) return true
   // Multi-word section headers ending with sub-recipe words
-  if (/\s+(base|compote|batter|crumble|pastry|coulis)$/i.test(s)) return true
+  if (/\s+(base|compote|batter|crumble|coulis)$/i.test(s)) return true
   return false
 }
 
@@ -156,15 +157,15 @@ function categorize(name: string): string {
   if (/\b(cumin seeds?|fenugreek|mustard seeds?|black mustard seeds?|coriander seeds?|fennel seeds?|nigella seeds?)\b/.test(s)) return "Spices & Seasonings"
   if (/\bpomegranate seeds?\b|\bseeds?\b/.test(s)) return "Nuts & Seeds"
   if (/\bcoconut\s+yogh/.test(s)) return "Plant-Based Dairy"
-  if (/\b(soy sauce|tamari|miso|vinegar|balsamic|tahini|peanut butter|almond butter|cashew butter|maple syrup|agave|agave syrup|sugar|brown sugar|caster sugar|icing sugar|coconut sugar|muscovado|golden syrup|mustard|dijon mustard|ketchup|sriracha|hot sauce|chilli sauce|chilli crisp|chili crisp|nutritional yeast|hoisin|tomato paste|tomato pur[\u00e9e]e|sun-dried tomatoes?|tamarind|mirin|coconut aminos|liquid smoke|yeast extract|marmite|pomegranate molasses|date syrup|liquid aminos|bragg|black mustard seeds?|mustard seeds?)\b/.test(s)) return "Sauces & Condiments"
+  if (/\b(soy sauce|tamari|miso|vinegar|balsamic|tahini|peanut butter|almond butter|cashew butter|maple syrup|agave|agave syrup|sugar|brown sugar|caster sugar|icing sugar|coconut sugar|muscovado|golden syrup|mustard|dijon mustard|ketchup|sriracha|hot sauce|chilli sauce|chilli crisp|chili crisp|nutritional yeast|hoisin|tomato paste|tomato pur[\u00e9e]e|sun-dried tomatoes?|tamarind|mirin|coconut aminos|liquid smoke|yeast extract|marmite|pomegranate molasses|date syrup|liquid aminos|bragg|black mustard seeds?|mustard seeds?|mayonnaise|vegan mayo)\b/.test(s)) return "Sauces & Condiments"
   if (/\b(salt|kala namak|black salt|flaky salt|sea salt|pepper|black pepper|white pepper|cumin seeds?|cumin|paprika|smoked paprika|turmeric|cardamom|cinnamon|ground cinnamon|oregano|thyme|rosemary|bay leaves?|bay leaf|curry powder|garam masala|cayenne|allspice|nutmeg|whole cloves?|ground cloves?|star anise|coriander seeds?|fennel seeds?|fenugreek|asafoetida|sumac|harissa|ras el hanout|five spice|mixed spice|mixed herbs?|vanilla|saffron|onion powder|celery salt|nigella seeds?|nigella|seasoning|spice blend|ground cumin|ground coriander|ground turmeric|ground cardamom|ground ginger|lemongrass)\b/.test(s)) return "Spices & Seasonings"
-  if (/\b(almond milk|oat milk|soy milk|rice milk|cashew milk|hemp milk|plant.based milk|plant milk|vegan milk|oat yogh|soy yogh|vegan yogh|dairy.free yogh|vegan butter|vegan cheese|plant.based cream|oat cream|soy cream|cashew cream|vegan cream|cream cheese)\b/.test(s) || /^(milk|yogurt|yoghurt|soy yogurt|plant.based milk)$/.test(s)) return "Plant-Based Dairy"
+  if (/\b(almond milk|oat milk|soy milk|rice milk|cashew milk|hemp milk|plant.based milk|plant milk|vegan milk|oat yogh|soy yogh|vegan yogh|dairy.free yogh|plant.based yogh|vegan butter|vegan cheese|plant.based cream|oat cream|soy cream|cashew cream|vegan cream|cream cheese)\b/.test(s) || /^(milk|yogurt|yoghurt|soy yogurt|plant.based milk)$/.test(s)) return "Plant-Based Dairy"
   if (/\b(tofu|tempeh|seitan|tvp)\b/.test(s)) return "Plant-Based Protein"
   if (/\boil\b/.test(s) && !/marinated|packed in oil|in oil|with oil/.test(s)) return "Oils"
-  if (/\b(pasta|rice|noodles?|flour|oats?|rolled oats?|quinoa|couscous|sourdough|bread|breadcrumbs?|crackers?|tortilla|flatbread|pita|naan|wrap|barley|polenta|cornmeal|semolina|bulgur|farro|millet|spelt|buckwheat|tapioca|baking powder|baking soda|bicarbonate)\b/.test(s)) return "Grains & Pasta"
-  if (/\b(coconut milk|coconut cream|passata|canned tomatoes?|chopped tomatoes?|diced tomatoes?|plum tomatoes?|kidney beans?|chickpeas?|butter beans?|cannellini beans?|black beans?|borlotti beans?|lentils?|split peas?|baked beans?|vegetable stock|stock cube|vegetable broth|broth|canned chickpea|canned tomato)\b/.test(s)) return "Tins & Jars"
+  if (/\b(pasta|rice|noodles?|flour|oats?|rolled oats?|quinoa|couscous|sourdough|bread|breadcrumbs?|crackers?|tortilla|flatbread|pita|naan|wrap|barley|polenta|cornmeal|semolina|bulgur|farro|millet|spelt|buckwheat|tapioca|baking powder|baking soda|bicarbonate|buns?|rolls?|pastry)\b/.test(s)) return "Grains & Pasta"
+  if (/\b(coconut milk|coconut cream|passata|canned tomatoes?|chopped tomatoes?|diced tomatoes?|plum tomatoes?|kidney beans?|chickpeas?|butter beans?|cannellini beans?|black beans?|borlotti beans?|lentils?|split peas?|baked beans?|vegetable stock|stock cube|vegetable broth|broth|canned chickpea|canned tomato|gherkins?)\b/.test(s)) return "Tins & Jars"
   if (/\b(cashews?|almonds?|walnuts?|pecans?|pine nuts?|pumpkin seeds?|sunflower seeds?|sesame|chia seeds?|flaxseeds?|flax seeds?|hemp seeds?|poppy seeds?|linseed|brazil nuts?|hazelnuts?|pistachios?|macadamia|desiccated coconut|coconut flakes?|shredded coconut|mixed nuts?|mixed seeds?)\b/.test(s)) return "Nuts & Seeds"
-  if (/\b(onion|shallot|leek|spring onions?|scallions?|chive|tomatoes?|cherry tomatoes?|pepper|capsicum|carrot|potato|sweet potato|yam|spinach|kale|chard|broccoli|cauliflower|zucchini|courgettes?|aubergine|eggplant|mushrooms?|pumpkin|squash|butternut|lettuce|cabbage|celery|ginger|avocado|coriander|cilantro|parsley|basil|mint|dill|sage|tarragon|rosemary|thyme|lemon|lime|orange|banana|apple|mango|berries|blueberries?|raspberries?|raspberry|strawberr|cherry|peach|plum|apricot|fig|beetroot|beet|fennel|asparagus|artichoke|corn|sweetcorn|peas?|frozen peas?|mangetout|sugar snap|edamame|bean sprout|bok choy|pak choi|cucumber|radish|turnip|swede|parsnip|watercress|rocket|arugula|okra|plantain|pineapple|pomegranate|chillies?|chili|chilli|green onions?)\b/.test(s)) return "Produce"
+  if (/\b(onion|shallot|leeks?|spring onions?|scallions?|chive|tomatoes?|cherry tomatoes?|pepper|capsicum|carrot|potatoes?|sweet potato|yam|spinach|kale|chard|broccoli|cauliflower|zucchini|courgettes?|aubergine|eggplant|mushrooms?|pumpkin|squash|butternut|lettuce|cabbage|celery|ginger|avocado|coriander|cilantro|parsley|basil|mint|dill|sage|tarragon|rosemary|thyme|lemon|lime|orange|banana|apple|mango|berries|blueberries?|raspberries?|raspberry|strawberr|cherry|peach|plum|apricot|fig|beetroot|beet|fennel|asparagus|artichoke|corn|sweetcorn|peas?|frozen peas?|mangetout|sugar snap|edamame|bean sprout|bok choy|pak choi|cucumber|radish|turnip|swede|parsnip|watercress|rocket|arugula|okra|plantain|pineapple|pomegranate|chillies?|chili|chilli|green onions?)\b/.test(s)) return "Produce"
   return "Other"
 }
 
@@ -183,11 +184,14 @@ function normName(s: string): string {
     .replace(/\bground turmeric\b/gi, "turmeric")
     .replace(/\bturmeric\s+powder\b/gi, "turmeric")
     // Plural → singular for count ingredients (so "2 green onions" + "1 green onion" combine)
+    .replace(/\bpotatoes\b/gi, "potato")   // irregular plural (oes)
+    .replace(/\bleeks\b/gi, "leek")         // not caught by generic -s strip
     .replace(/\b(onion|shallot|lemon|lime|avocado|banana|carrot|potato|courgette|clove)s\b/gi, "$1")
     // Strip one or more consecutive leading descriptors / size qualifiers
-    .replace(/^(?:(?:large|medium|small|big|ripe|some|a few|fresh|dried|flaky|whole|chopped|frozen|sliced|diced|minced|grated|roasted|toasted|cooked|melted|raw|organic|heaped|heaping|creamy|super)\s+)+/gi, "")
+    .replace(/^(?:(?:large|medium|small|big|ripe|some|a few|fresh|dried|flaky|whole|chopped|frozen|sliced|diced|minced|grated|roasted|toasted|cooked|melted|raw|organic|heaped|heaping|creamy|super|firm|extra\s+firm)\s+)+/gi, "")
     // Strip orphaned unit word at start when number was omitted (e.g. "Tbsp oat milk")
-    .replace(/^(?:tablespoons?|teaspoons?|tbsp|tsp|cups?|grams?|kg|ml|handfuls?|pinches?|bunches?|stalks?|sprigs?|cans?|tins?|cloves?|heads?|sheets?)\s+/gi, "")
+    .replace(/^(?:tablespoons?|teaspoons?|tbsp|tsp|cups?|grams?|kg|ml|handfuls?|pinches?|bunches?|stalks?|sprigs?|cans?|tins?|cloves?|heads?|sheets?|packs?)\s+/gi, "")
+    .replace(/^of\s+/i, "")  // strip orphaned "of" left after unit strip ("handful of basil" → "basil")
     .replace(/^-?\d*\s*[-\u2013]?\s*(?:inch|cm|mm)\s+/i, "")
     .replace(/^(?:knob\s+of\s+|piece\s+of\s+|chunk\s+of\s+|chunk\s+|thumb[-\s]*sized?\s+(?:piece\s+(?:of\s+)?)?)/i, "")
     .toLowerCase()
@@ -224,8 +228,8 @@ function parseIngredient(raw: string): ParsedIngredient | null {
   s = s.replace(/^a?\s*couple\s+(?:of\s+)?/i, "2 ")
   s = s.replace(/^juice\s+(?:of\s+)?/i, "")
 
-  // Strip "/alternative" options: "peas/edamame beans" → "peas"
-  s = s.replace(/([a-z])\s*\/.*$/i, "$1").trim()
+  // Strip "/alternative" options: "oat/almond milk" → "oat milk", "peas/edamame" → "peas"
+  s = s.replace(/([a-z])\/\w+/gi, "$1").trim()
 
   // Strip size descriptors: "1-inch knob ginger", "thumb-sized piece ginger"
   s = s.replace(/^\d+\s*[-\u2013]\s*(?:inch|cm|mm)\s+(?:(?:piece|knob)\s+(?:of\s+)?)?/i, "")
@@ -236,7 +240,7 @@ function parseIngredient(raw: string): ParsedIngredient | null {
   s = s.replace(/,\s*(?:roughly|finely|thinly|coarsely|freshly|lightly|generously|gently)?\s*(?:chopped|diced|sliced|minced|grated|crushed|mashed|roasted|toasted|soaked|drained|rinsed|peeled|deseeded|halved|quartered|juiced|zested|melted|softened|crumbled|trimmed|shredded|cubed|defrosted|thawed|marinated|pickled|blanched|cooked|roughly broken|cut into\b.*).*$/i, "").trim()
 
   // Strip trailing context phrases (comma or whitespace before them)
-  s = s.replace(/[,\s]+(?:to taste|optional|as needed|if needed|or to taste|or as needed|of your choice|your choice|adjust to taste|include the liquid|do not strain|or more|or less|for frying|for baking|for serving|for garnish|to serve|defrosted|thawed|cooked per package|per package)\s*$/i, "").trim()
+  s = s.replace(/[,\s]+(?:to taste|optional|as needed|if needed|or to taste|or as needed|of your choice|your choice|adjust to taste|include the liquid|do not strain|or more|or less|for frying|for baking|for serving|for garnish|to serve|defrosted|thawed|cooked per package|per package|leaves picked|stripped|freshly ground)\s*$/i, "").trim()
 
   // Second trailing comma strip
   s = s.replace(/,\s*$/, "").trim()
@@ -308,21 +312,47 @@ function aggregateIngredients(rawItems: string[]): AggregatedItem[] {
       map.set(key, { qty: p.qty, unit: p.unit, name: p.name, category: p.category })
     }
   }
-  return Array.from(map.values())
+  const allItems = Array.from(map.values())
     // Drop unrecognised items with no quantity — these are usually sub-recipe names or noise
     .filter(g => !(g.category === "Other" && g.qty === null && g.unit === null))
-    .map(g => {
-    let display: string
-    if (g.qty === null) {
-      display = g.name
-    } else if (g.unit) {
-      const noSpace = ["g", "kg", "ml", "l"].includes(g.unit)
-      display = `${formatQty(g.qty)}${noSpace ? "" : " "}${g.unit} ${g.name}`
-    } else {
-      display = `${formatQty(g.qty)} ${g.name}`
+
+  // Post-aggregation: merge same-name different-unit items (e.g. "39g + 5 tbsp nutritional yeast")
+  const byNameCat = new Map<string, typeof allItems>()
+  for (const item of allItems) {
+    const key = `${item.name}||${item.category}`
+    if (!byNameCat.has(key)) byNameCat.set(key, [])
+    byNameCat.get(key)!.push(item)
+  }
+
+  return Array.from(byNameCat.values()).map(group => {
+    // If group has both qty and null-qty entries, prefer the qty ones
+    const withQty = group.filter(g => g.qty !== null)
+    const items = withQty.length > 0 ? withQty : group
+
+    if (items.length === 1) {
+      const g = items[0]
+      let display: string
+      if (g.qty === null) {
+        display = g.name
+      } else if (g.unit) {
+        const noSpace = ["g", "kg", "ml", "l"].includes(g.unit)
+        display = `${formatQty(g.qty)}${noSpace ? "" : " "}${g.unit} ${g.name}`
+      } else {
+        display = `${formatQty(g.qty)} ${g.name}`
+      }
+      display = display.charAt(0).toUpperCase() + display.slice(1)
+      return { display, category: g.category }
     }
-    display = display.charAt(0).toUpperCase() + display.slice(1)
-    return { display, category: g.category }
+
+    // Multiple units — combine into "Xunit1 + Xunit2 name"
+    const parts = items.map(g => {
+      if (g.qty === null) return ""
+      const noSpace = g.unit && ["g", "kg", "ml", "l"].includes(g.unit)
+      return `${formatQty(g.qty)}${noSpace ? "" : " "}${g.unit ?? ""}`.trim()
+    }).filter(Boolean)
+    const display = (`${parts.join(" + ")} ${items[0].name}`).charAt(0).toUpperCase()
+      + (`${parts.join(" + ")} ${items[0].name}`).slice(1)
+    return { display, category: items[0].category }
   }).sort((a, b) => a.display.localeCompare(b.display))
 }
 
