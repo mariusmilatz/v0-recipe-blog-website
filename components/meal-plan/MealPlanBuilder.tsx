@@ -494,55 +494,44 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
     if (!recipeCache.has(slug)) fetchAndCache(slug).catch(() => {})
   }
 
-  // ── Add to plan ──
-  async function addToSlot(recipe: RecipeSnippet) {
-    // Check cache first — if hit, this is near-instant
-    if (recipeCache.has(recipe.slug)) {
-      const full = recipeCache.get(recipe.slug)!
-      const meal = autoMealType(recipe)
-      let targetDay = firstEmptyDay(slots, days, meal, cookPrefs[meal])
-      if (!targetDay) {
-        for (const m of MEAL_TYPES) {
-          targetDay = firstEmptyDay(slots, days, m, cookPrefs[m])
-          if (targetDay) break
-        }
+  // ── Add to plan (synchronous — instant UI update) ──
+  function addToSlot(recipe: RecipeSnippet) {
+    const meal = autoMealType(recipe)
+    let targetDay = firstEmptyDay(slots, days, meal, cookPrefs[meal])
+    if (!targetDay) {
+      for (const m of MEAL_TYPES) {
+        targetDay = firstEmptyDay(slots, days, m, cookPrefs[m])
+        if (targetDay) break
       }
-      if (!targetDay) { toast({ title: "All slots are filled", description: "Remove a recipe to make space." }); return }
-      const targetMeal = slots[targetDay][meal] === null ? meal : (MEAL_TYPES.find(m => !slots[targetDay!][m]) ?? meal)
-      setSlots(prev => ({ ...prev, [targetDay!]: { ...prev[targetDay!], [targetMeal]: { recipe: full, isReheat: false } } }))
-      return
     }
-    setLoadingSlug(recipe.slug)
-    try {
-      const full = await fetchAndCache(recipe.slug)
-      if (!full) { setLoadingSlug(null); return }
+    if (!targetDay) { toast({ title: "All slots are filled", description: "Remove a recipe to make space." }); return }
+    const targetMeal = slots[targetDay][meal] === null ? meal : (MEAL_TYPES.find(m => !slots[targetDay!][m]) ?? meal)
 
-      const meal = autoMealType(recipe)
-      let targetDay = firstEmptyDay(slots, days, meal, cookPrefs[meal])
+    // Immediately add a placeholder so the UI updates instantly
+    const placeholder: RecipeFull = { ...recipe, ingredientSections: [], instructions: [], serves: "" }
+    const capturedDay = targetDay
+    const capturedMeal = targetMeal
+    setSlots(prev => ({
+      ...prev,
+      [capturedDay]: { ...prev[capturedDay], [capturedMeal]: { recipe: placeholder, isReheat: false } },
+    }))
 
-      if (!targetDay) {
-        // Try any meal type
-        for (const m of MEAL_TYPES) {
-          targetDay = firstEmptyDay(slots, days, m, cookPrefs[m])
-          if (targetDay) break
+    // Background: fetch full recipe (ingredients) and patch into any matching slots
+    fetchAndCache(recipe.slug).then(full => {
+      if (!full) return
+      setSlots(prev => {
+        const next = { ...prev }
+        for (const d of ALL_DAYS) {
+          for (const m of MEAL_TYPES) {
+            const entry = next[d][m]
+            if (entry?.recipe.slug === recipe.slug && entry.recipe.ingredientSections.length === 0) {
+              next[d] = { ...next[d], [m]: { ...entry, recipe: full } }
+            }
+          }
         }
-      }
-
-      if (!targetDay) {
-        toast({ title: "All slots are filled", description: "Remove a recipe to make space." })
-        return
-      }
-
-      const targetMeal = slots[targetDay][meal] === null ? meal
-        : (MEAL_TYPES.find(m => !slots[targetDay!][m]) ?? meal)
-
-      setSlots(prev => ({
-        ...prev,
-        [targetDay!]: { ...prev[targetDay!], [targetMeal]: { recipe: full, isReheat: false } },
-      }))
-    } finally {
-      setLoadingSlug(null)
-    }
+        return next
+      })
+    }).catch(() => {})
   }
 
   function removeFromSlot(day: DayOfWeek, meal: MealType) {
@@ -663,7 +652,11 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
   function buildShoppingList() {
     const allRaw: string[] = []
     for (const r of uniqueRecipes()) {
-      for (const section of r.ingredientSections || []) allRaw.push(...section.items)
+      // If background fetch hasn't completed yet, fall back to the cache
+      const sections = (r.ingredientSections && r.ingredientSections.length > 0)
+        ? r.ingredientSections
+        : (recipeCache.get(r.slug)?.ingredientSections || [])
+      for (const section of sections) allRaw.push(...section.items)
     }
     const items = aggregateIngredients(allRaw)
     const grouped: Record<string, AggregatedItem[]> = {}
@@ -873,13 +866,10 @@ export default function MealPlanBuilder({ recipes }: { recipes: RecipeSnippet[] 
                       </p>
                     )}
                     <button
-                      disabled={loadingSlug === recipe.slug}
                       onClick={() => addToSlot(recipe)}
-                      className="w-full h-6 text-xs font-medium rounded bg-[#6a994e] hover:bg-[#5a8540] text-white disabled:opacity-50 flex items-center justify-center gap-1 transition-colors"
+                      className="w-full h-6 text-xs font-medium rounded bg-[#6a994e] hover:bg-[#5a8540] text-white flex items-center justify-center gap-1 transition-colors"
                     >
-                      {loadingSlug === recipe.slug
-                        ? <Loader2 className="h-3 w-3 animate-spin" />
-                        : <><Plus className="h-3 w-3" />Add</>}
+                      <Plus className="h-3 w-3" />Add
                     </button>
                   </div>
                 </div>
